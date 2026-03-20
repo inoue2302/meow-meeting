@@ -46,7 +46,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     if (submittedRef.current) return;
     submittedRef.current = true;
 
-    let prevMessagesLen = 0;
+    let confirmedUpTo = 0; // この位置まで確定済み
 
     (async () => {
       try {
@@ -59,10 +59,12 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
           lastObject = partialObject as PartialMeetingObject;
           const messages = lastObject.messages ?? [];
 
-          // 完成したメッセージを確定（最後の1件以外）
-          if (messages.length > prevMessagesLen) {
+          // 最後の1件以外は完成 → 確定
+          const newCompleteUpTo = Math.max(0, messages.length - 1);
+
+          if (newCompleteUpTo > confirmedUpTo) {
             const newConfirmed: ConfirmedMessage[] = messages
-              .slice(prevMessagesLen, messages.length - 1)
+              .slice(confirmedUpTo, newCompleteUpTo)
               .flatMap((msg) => {
                 if (msg?.cat && msg?.text && isCatName(msg.cat)) {
                   return [{ cat: msg.cat, text: msg.text }];
@@ -73,13 +75,15 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
             if (newConfirmed.length > 0) {
               setConfirmedMessages((prev) => [...prev, ...newConfirmed]);
             }
-            prevMessagesLen = messages.length;
+            confirmedUpTo = newCompleteUpTo;
           }
 
           // ストリーミング中の最後のメッセージ
           const lastMsg = messages[messages.length - 1];
           if (lastMsg?.cat && lastMsg?.text) {
             setStreamingMsg({ cat: lastMsg.cat, text: lastMsg.text });
+          } else {
+            setStreamingMsg(null);
           }
         }
 
