@@ -7,12 +7,11 @@ import { CatName } from "@/lib/types";
 interface ChatBubbleProps {
   cat: CatName;
   text: string;
-  index: number;
+  isLeft: boolean;
   isStreaming?: boolean;
 }
 
-export function ChatBubble({ cat, text, index, isStreaming }: ChatBubbleProps) {
-  const isLeft = index % 2 === 0;
+export function ChatBubble({ cat, text, isLeft, isStreaming }: ChatBubbleProps) {
   return (
     <div className={`flex ${isLeft ? "justify-start" : "justify-end"}`}>
       {isLeft && (

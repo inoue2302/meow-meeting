@@ -10,7 +10,7 @@ import { MeetingResult } from "@/lib/schema";
 import { HearingResult, isCatName } from "@/lib/types";
 import {
   ConfirmedMessage,
-  PartialMeetingObject,
+  StreamingMeetingObject,
   toConfirmedMessages,
   buildFinalResult,
 } from "@/lib/meeting-utils";
@@ -56,11 +56,11 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     (async () => {
       try {
         const { object } = await generateMeeting(hearing);
-        let lastObject: PartialMeetingObject | null = null;
+        let lastObject: StreamingMeetingObject | null = null;
 
         for await (const partialObject of readStreamableValue(object)) {
           if (!partialObject) continue;
-          lastObject = partialObject as PartialMeetingObject;
+          lastObject = partialObject as StreamingMeetingObject;
           const messages = lastObject.messages ?? [];
           const newCompleteUpTo = Math.max(0, messages.length - 1);
 
@@ -91,7 +91,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
       }
     })();
 
-    function handleStreamComplete(lastObject: PartialMeetingObject | null) {
+    function handleStreamComplete(lastObject: StreamingMeetingObject | null) {
       setIsLoading(false);
       setStreamingMsg(null);
 
@@ -115,8 +115,12 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
     function handleStreamError(e: unknown) {
       setIsLoading(false);
-      const msg = e instanceof Error ? e.message : "";
-      setPhase(msg.includes("RATE_LIMITED") ? "rate-limited" : "error");
+      if (e instanceof Error && e.message.includes("RATE_LIMITED")) {
+        setPhase("rate-limited");
+        return;
+      }
+      console.error("[Meeting] stream error:", e);
+      setPhase("error");
     }
   }, [hearing, retryCount]);
 
@@ -140,7 +144,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
         behavior: "instant",
       });
     }
-  });
+  }, [streamingMsg?.text]);
 
   const handlePokapokaComplete = useCallback(
     () => setPhase("conclusion"),
@@ -198,7 +202,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
             key={`msg-${i}`}
             cat={msg.cat}
             text={msg.text}
-            index={i}
+            isLeft={i % 2 === 0}
           />
         ))}
 
@@ -206,7 +210,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
           <ChatBubble
             cat={streamingMsg.cat}
             text={streamingMsg.text}
-            index={confirmedMessages.length}
+            isLeft={confirmedMessages.length % 2 === 0}
             isStreaming
           />
         )}

@@ -7,7 +7,7 @@ export interface ConfirmedMessage {
 }
 
 // MeetingResultからDeepPartialを導出
-export type PartialMeetingObject = {
+export type StreamingMeetingObject = {
   [K in keyof MeetingResult]?: MeetingResult[K] extends Array<infer U>
     ? Array<U extends object ? { [P in keyof U]?: U[P] } : U | undefined>
     : MeetingResult[K];
@@ -27,8 +27,8 @@ export function toConfirmedMessages(
 
 /** PartialMeetingObjectからMeetingResultを構築。conclusionが無ければnull */
 export function buildFinalResult(
-  obj: PartialMeetingObject,
-  allMessages: ConfirmedMessage[]
+  obj: StreamingMeetingObject,
+  confirmedMessages: ConfirmedMessage[]
 ): MeetingResult | null {
   if (!obj.conclusion) return null;
 
@@ -37,7 +37,7 @@ export function buildFinalResult(
   );
 
   return {
-    messages: allMessages,
+    messages: confirmedMessages,
     conclusion: obj.conclusion,
     strategies: [
       strategies[0] ?? "",

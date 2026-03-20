@@ -10,7 +10,12 @@ import { RateLimitedError } from "@/lib/errors";
 import { validateHearingInput } from "@/lib/validate-hearing";
 
 export async function generateMeeting(input: unknown) {
-  const body = validateHearingInput(input);
+  let body;
+  try {
+    body = validateHearingInput(input);
+  } catch {
+    throw new Error("入力が正しくないにゃ");
+  }
 
   // レート制限（バリデーション通過後に消費）
   try {

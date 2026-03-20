@@ -106,7 +106,7 @@ export function Hearing({ onComplete }: HearingProps) {
     ]);
   };
 
-  const handleQuestionAnswer = (option: string) => {
+  const handleAnswerSelection = (option: string) => {
     if (!selectedTheme) return;
     const newAnswers = [...answers, option];
     setAnswers(newAnswers);
@@ -136,7 +136,7 @@ export function Hearing({ onComplete }: HearingProps) {
     if (!isThemeSelected) {
       handleThemeSelection(option);
     } else {
-      handleQuestionAnswer(option);
+      handleAnswerSelection(option);
     }
   };
 
