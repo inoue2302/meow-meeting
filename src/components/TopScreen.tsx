@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { CatIcon } from "@/components/CatIcon";
 
 interface TopScreenProps {
   onStart: () => void;
@@ -12,8 +13,23 @@ export function TopScreen({ onStart }: TopScreenProps) {
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
       <Card className="max-w-md w-full text-center shadow-lg border-amber-200 bg-white/80">
         <CardContent className="pt-8 pb-6 px-6 space-y-6">
-          {/* トラのアイコン */}
-          <div className="text-7xl">🐯</div>
+          {/* 4匹集合 */}
+          <div className="relative h-32 mx-auto w-64">
+            {/* 後列 */}
+            <div className="absolute left-6 top-0">
+              <CatIcon name="スミ" size={72} />
+            </div>
+            <div className="absolute right-6 top-0">
+              <CatIcon name="カゼ" size={72} />
+            </div>
+            {/* 前列 */}
+            <div className="absolute left-16 top-10 z-10">
+              <CatIcon name="モチ" size={80} />
+            </div>
+            <div className="absolute right-16 top-10 z-10">
+              <CatIcon name="トラ" size={80} />
+            </div>
+          </div>
 
           <div className="space-y-2">
             <h1 className="text-3xl font-bold text-amber-900">

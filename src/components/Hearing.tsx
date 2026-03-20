@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { CatIcon } from "@/components/CatIcon";
 import { themes } from "@/lib/data/themes";
 import { HearingResult } from "@/lib/types";
 
@@ -18,10 +19,16 @@ interface Message {
 export function Hearing({ onComplete }: HearingProps) {
   const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
-  const [messages, setMessages] = useState<Message[]>([
+  // 確定済みメッセージ（表示中のもの）
+  const [displayedMessages, setDisplayedMessages] = useState<Message[]>([]);
+  // 表示待ちキュー（トラのメッセージを順番に出す）
+  const [pendingMessages, setPendingMessages] = useState<Message[]>([
     { speaker: "トラ", text: "どうしたにゃ？何について相談するにゃ？" },
   ]);
+  const [isTyping, setIsTyping] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const selectedTheme = themes.find((t) => t.id === selectedThemeId);
   const currentQuestionIndex = answers.length;
@@ -33,26 +40,60 @@ export function Hearing({ onComplete }: HearingProps) {
       ? selectedTheme.questions[currentQuestionIndex].options
       : [];
 
-  const handleSelect = (option: string) => {
-    if (transitioning) return;
+  // 自動スクロール
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, []);
 
-    // ユーザーの選択を追加
-    const newMessages: Message[] = [
-      ...messages,
-      { speaker: "user" as const, text: option },
-    ];
+  // pendingMessagesを1つずつ表示する
+  useEffect(() => {
+    if (pendingMessages.length === 0) return;
+
+    setShowOptions(false);
+    setIsTyping(true);
+
+    const delay = pendingMessages[0].speaker === "トラ" ? 800 + Math.random() * 600 : 0;
+
+    const timer = setTimeout(() => {
+      setIsTyping(false);
+      setDisplayedMessages((prev) => [...prev, pendingMessages[0]]);
+      setPendingMessages((prev) => prev.slice(1));
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [pendingMessages]);
+
+  // 全部表示し終わったら選択肢を出す
+  useEffect(() => {
+    if (pendingMessages.length === 0 && !isTyping && displayedMessages.length > 0) {
+      const timer = setTimeout(() => {
+        setShowOptions(true);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [pendingMessages.length, isTyping, displayedMessages.length]);
+
+  // メッセージ追加時にスクロール
+  useEffect(() => {
+    scrollToBottom();
+  }, [displayedMessages, isTyping, scrollToBottom]);
+
+  const handleSelect = (option: string) => {
+    if (transitioning || pendingMessages.length > 0 || isTyping) return;
+
+    setShowOptions(false);
+
+    // ユーザーの選択をすぐ表示
+    setDisplayedMessages((prev) => [...prev, { speaker: "user", text: option }]);
 
     if (!isThemeSelected) {
-      // テーマ選択
       const theme = themes.find((t) => t.label === option);
       if (!theme) return;
       setSelectedThemeId(theme.id);
-      setMessages([
-        ...newMessages,
-        {
-          speaker: "トラ",
-          text: `「${option}」にゃね。もう少し聞かせてにゃ。`,
-        },
+      setPendingMessages([
+        { speaker: "トラ", text: `「${option}」にゃね。もう少し聞かせてにゃ。` },
         { speaker: "トラ", text: theme.questions[0].question },
       ]);
     } else if (selectedTheme) {
@@ -60,27 +101,17 @@ export function Hearing({ onComplete }: HearingProps) {
       setAnswers(newAnswers);
 
       if (newAnswers.length < selectedTheme.questions.length) {
-        // 次の質問
-        setMessages([
-          ...newMessages,
-          {
-            speaker: "トラ",
-            text: selectedTheme.questions[newAnswers.length].question,
-          },
+        setPendingMessages([
+          { speaker: "トラ", text: selectedTheme.questions[newAnswers.length].question },
         ]);
       } else {
-        // 全質問完了 → 会議へ
-        setMessages([
-          ...newMessages,
-          {
-            speaker: "トラ",
-            text: "なるほどにゃ...みんな集めるにゃ！",
-          },
+        setPendingMessages([
+          { speaker: "トラ", text: "なるほどにゃ...みんな集めるにゃ！" },
         ]);
         setTransitioning(true);
         setTimeout(() => {
           onComplete({ themeId: selectedThemeId!, answers: newAnswers });
-        }, 1500);
+        }, 2500);
       }
     }
   };
@@ -88,14 +119,14 @@ export function Hearing({ onComplete }: HearingProps) {
   return (
     <div className="flex flex-col min-h-screen px-4 py-6 max-w-md mx-auto w-full">
       {/* 会話履歴 */}
-      <div className="flex-1 space-y-3 overflow-y-auto pb-4">
-        {messages.map((msg, i) => (
+      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto pb-4">
+        {displayedMessages.map((msg, i) => (
           <div
             key={i}
-            className={`flex ${msg.speaker === "user" ? "justify-end" : "justify-start"}`}
+            className={`flex animate-fade-in ${msg.speaker === "user" ? "justify-end" : "justify-start"}`}
           >
             {msg.speaker === "トラ" && (
-              <div className="text-2xl mr-2 shrink-0 self-end">🐯</div>
+              <CatIcon name="トラ" size={40} className="mr-1 shrink-0 self-center" />
             )}
             <Card
               className={`max-w-[80%] ${
@@ -110,11 +141,27 @@ export function Hearing({ onComplete }: HearingProps) {
             </Card>
           </div>
         ))}
+
+        {/* タイピングインジケーター */}
+        {isTyping && (
+          <div className="flex justify-start animate-fade-in">
+            <CatIcon name="トラ" size={40} className="mr-1 shrink-0 self-center" />
+            <Card className="bg-white border-amber-200">
+              <CardContent className="px-4 py-3">
+                <div className="flex gap-1.5 items-center h-5">
+                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
 
       {/* 選択肢 */}
-      {!transitioning && currentOptions.length > 0 && (
-        <div className="space-y-2 pt-4 border-t border-amber-200">
+      {showOptions && !transitioning && currentOptions.length > 0 && (
+        <div className="space-y-2 pt-4 border-t border-amber-200 animate-fade-in">
           {currentOptions.map((option) => (
             <Button
               key={option}
