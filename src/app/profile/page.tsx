@@ -39,7 +39,22 @@ export default function ProfilePage() {
                   </p>
                 </div>
               </div>
-              <div className="mt-4 space-y-1.5">
+              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                <div>
+                  <span className="text-amber-500 font-medium">猫年齢:</span>{" "}
+                  <span className="text-gray-700">{cat.age}</span>
+                </div>
+                <div>
+                  <span className="text-amber-500 font-medium">好き:</span>{" "}
+                  <span className="text-gray-700">{cat.likes}</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-amber-500 font-medium">苦手:</span>{" "}
+                  <span className="text-gray-700">{cat.dislikes}</span>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-1">
                 {cat.quotes.map((quote, i) => (
                   <p
                     key={i}

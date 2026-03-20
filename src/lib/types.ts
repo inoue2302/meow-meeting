@@ -8,6 +8,9 @@ export interface Cat {
   bgColor: string;
   description: string;
   quotes: string[];
+  age: string;
+  likes: string;
+  dislikes: string;
 }
 
 export interface Question {
