@@ -85,6 +85,20 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     displayedMessages.length < readyQueue.length ||
     (isLoading && messagesLen <= readyQueue.length + 1);
 
+  // 次に喋る猫（タイピングインジケーターに表示）
+  const nextCat: CatName | null = (() => {
+    const nextIdx = displayedMessages.length;
+    if (nextIdx < readyQueue.length) {
+      return readyQueue[nextIdx].cat as CatName;
+    }
+    // ストリーミング中の最後のメッセージ
+    if (isLoading && messagesLen > 0) {
+      const lastMsg = messages[messagesLen - 1];
+      if (lastMsg?.cat) return lastMsg.cat as CatName;
+    }
+    return null;
+  })();
+
   // 全メッセージ表示完了 + ストリーミング完了 → ポカポカ演出へ
   useEffect(() => {
     if (
@@ -155,7 +169,10 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
         ))}
 
         {showTypingIndicator && (
-          <div className="flex justify-start animate-fade-in">
+          <div className="flex justify-start animate-fade-in items-center">
+            {nextCat && (
+              <CatIcon name={nextCat} size={56} className="mr-1 shrink-0" />
+            )}
             <Card className="bg-white border-amber-200">
               <CardContent className="px-4 py-3">
                 <div className="flex gap-1.5 items-center h-5">
@@ -187,7 +204,7 @@ function MessageBubble({
       {isLeft && (
         <CatIcon
           name={msg.cat as CatName}
-          size={40}
+          size={56}
           className="mr-1 shrink-0 self-center"
         />
       )}
@@ -206,7 +223,7 @@ function MessageBubble({
       {!isLeft && (
         <CatIcon
           name={msg.cat as CatName}
-          size={40}
+          size={56}
           className="ml-1 shrink-0 self-center"
         />
       )}
