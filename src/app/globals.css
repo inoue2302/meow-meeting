@@ -127,6 +127,9 @@
   html {
     @apply font-sans;
   }
+  a, button {
+    touch-action: manipulation;
+  }
 }
 
 @keyframes fade-in {

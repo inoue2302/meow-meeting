@@ -69,7 +69,8 @@ export default function ProfilePage() {
 
       <a
         href="/"
-        className="block pt-2 w-full bg-green-600 hover:bg-green-700 text-white text-lg py-4 rounded-xl text-center font-medium"
+        className="block mt-2 w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-lg py-5 rounded-xl text-center font-medium touch-action-manipulation"
+        style={{ touchAction: "manipulation" }}
       >
         トップに戻るにゃ 🐾
       </a>
