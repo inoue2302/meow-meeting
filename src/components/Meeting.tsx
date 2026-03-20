@@ -31,16 +31,12 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     "meeting"
   );
   const [submitted, setSubmitted] = useState(false);
-  // LLMから完成したメッセージのキュー
-  const [readyMessages, setReadyMessages] = useState<ConfirmedMessage[]>([]);
-  // 画面に表示済みのメッセージ
-  const [displayedMessages, setDisplayedMessages] = useState<
-    ConfirmedMessage[]
-  >([]);
+  const [readyQueue, setReadyQueue] = useState<ConfirmedMessage[]>([]);
+  const [displayedMessages, setDisplayedMessages] = useState<ConfirmedMessage[]>([]);
   const [finalResult, setFinalResult] = useState<MeetingResult | null>(null);
-  const [isShowingTyping, setIsShowingTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const prevMessagesLenRef = useRef(0);
+  const readyCountRef = useRef(0);
+  const displayTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // 初回マウント時にsubmit
   useEffect(() => {
@@ -51,68 +47,52 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
   }, [hearing, submit, submitted]);
 
   const messages = object?.messages ?? [];
+  const messagesLen = messages.length;
 
-  // LLMから完成したメッセージをreadyキューに追加
+  // 完成したメッセージをreadyQueueに追加
+  // 「次のメッセージが来た = 前のメッセージは完成」のロジック
   useEffect(() => {
-    if (messages.length > prevMessagesLenRef.current) {
-      for (
-        let i = Math.max(prevMessagesLenRef.current, 0);
-        i < messages.length - 1;
-        i++
-      ) {
+    // messages配列で、最後の1件以外は完成とみなす
+    const completedCount = isLoading ? Math.max(0, messagesLen - 1) : messagesLen;
+
+    if (completedCount > readyCountRef.current) {
+      const newMessages: ConfirmedMessage[] = [];
+      for (let i = readyCountRef.current; i < completedCount; i++) {
         const msg = messages[i];
         if (msg?.cat && msg?.text) {
-          setReadyMessages((prev) => {
-            if (prev.length <= i) {
-              return [...prev, { cat: msg.cat!, text: msg.text! }];
-            }
-            return prev;
-          });
+          newMessages.push({ cat: msg.cat, text: msg.text });
         }
       }
-      prevMessagesLenRef.current = messages.length;
-    }
-
-    // ストリーミング完了 → 最後のメッセージもreadyに
-    if (!isLoading && messages.length > 0) {
-      const allReady: ConfirmedMessage[] = [];
-      for (let i = 0; i < messages.length; i++) {
-        const msg = messages[i];
-        if (msg?.cat && msg?.text) {
-          allReady.push({ cat: msg.cat, text: msg.text });
-        }
+      if (newMessages.length > 0) {
+        setReadyQueue((prev) => [...prev, ...newMessages]);
       }
-      setReadyMessages(allReady);
+      readyCountRef.current = completedCount;
     }
-  }, [messages, messages.length, isLoading]);
+  }, [messagesLen, isLoading, messages]);
 
-  // readyキューから1つずつ遅延表示
+  // readyQueueから1つずつ遅延表示
   useEffect(() => {
-    if (displayedMessages.length < readyMessages.length && !isShowingTyping) {
-      setIsShowingTyping(true);
-      const timer = setTimeout(() => {
-        setDisplayedMessages((prev) => [
-          ...prev,
-          readyMessages[prev.length],
-        ]);
-        setIsShowingTyping(false);
+    if (displayedMessages.length < readyQueue.length) {
+      displayTimerRef.current = setTimeout(() => {
+        setDisplayedMessages((prev) => [...prev, readyQueue[prev.length]]);
       }, MESSAGE_DISPLAY_DELAY_MS);
-      return () => clearTimeout(timer);
+      return () => clearTimeout(displayTimerRef.current);
     }
-  }, [readyMessages.length, displayedMessages.length, isShowingTyping, readyMessages]);
+  }, [readyQueue.length, displayedMessages.length, readyQueue]);
 
-  // ストリーミング中 or 表示待ちがある
+  // 表示待ちがあるか、まだストリーミング中
   const showTypingIndicator =
-    isShowingTyping ||
-    (isLoading && messages.length <= displayedMessages.length);
+    displayedMessages.length < readyQueue.length ||
+    (isLoading && messagesLen <= readyQueue.length + 1);
 
-  // 全メッセージ表示完了かつストリーミング完了 → ポカポカ演出へ
+  // 全メッセージ表示完了 + ストリーミング完了 → ポカポカ演出へ
   useEffect(() => {
     if (
       !isLoading &&
       object?.messages &&
       object.messages.length > 0 &&
-      displayedMessages.length >= object.messages.length &&
+      readyQueue.length >= object.messages.length &&
+      displayedMessages.length >= readyQueue.length &&
       phase === "meeting"
     ) {
       const completeMessages = (object.messages ?? [])
@@ -132,7 +112,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isLoading, object, phase, displayedMessages.length]);
+  }, [isLoading, object, phase, displayedMessages.length, readyQueue.length]);
 
   // 自動スクロール
   const scrollToBottom = useCallback(() => {
@@ -144,6 +124,13 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
   useEffect(() => {
     scrollToBottom();
   }, [displayedMessages.length, showTypingIndicator, scrollToBottom]);
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (displayTimerRef.current) clearTimeout(displayTimerRef.current);
+    };
+  }, []);
 
   if (phase === "pokapoka") {
     return <PokapokaBattle onComplete={() => setPhase("conclusion")} />;
