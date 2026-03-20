@@ -225,16 +225,19 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
         <div ref={bottomRef} />
       </div>
 
-      {phase === "done" && (
-        <div className="pt-4 border-t border-amber-200 animate-fade-in">
-          <button
-            onClick={() => setPhase("pokapoka")}
-            className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-lg py-5 rounded-xl cursor-pointer font-medium"
-          >
-            結果を見るにゃ 🐾
-          </button>
-        </div>
-      )}
+      <div className="pt-4 border-t border-amber-200">
+        <button
+          onClick={() => setPhase("pokapoka")}
+          disabled={phase !== "done"}
+          className={`w-full text-white text-lg py-5 rounded-xl font-medium transition-colors ${
+            phase === "done"
+              ? "bg-green-600 hover:bg-green-700 active:bg-green-800 cursor-pointer"
+              : "bg-gray-300 cursor-not-allowed"
+          }`}
+        >
+          {phase === "done" ? "結果を見るにゃ 🐾" : "会議中にゃ..."}
+        </button>
+      </div>
     </div>
   );
 }
