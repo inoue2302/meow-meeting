@@ -200,7 +200,7 @@ function MessageBubble({
   const isLeft = index % 2 === 0;
   return (
     <div
-      className={`flex animate-fade-in ${isLeft ? "justify-start" : "justify-end"}`}
+      className={`flex ${isLeft ? "justify-start" : "justify-end"}`}
     >
       {isLeft && (
         <CatIcon
