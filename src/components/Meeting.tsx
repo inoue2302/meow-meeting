@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { experimental_useObject as useObject } from "@ai-sdk/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { CatIcon } from "@/components/CatIcon";
-import { meetingSchema } from "@/lib/schema";
+import { meetingSchema, MeetingResult } from "@/lib/schema";
 import { HearingResult, CatName } from "@/lib/types";
 import { PokapokaBattle } from "@/components/PokapokaBattle";
 import { Conclusion } from "@/components/Conclusion";
@@ -12,6 +12,11 @@ import { Conclusion } from "@/components/Conclusion";
 interface MeetingProps {
   hearing: HearingResult;
   onReset: () => void;
+}
+
+interface ConfirmedMessage {
+  cat: string;
+  text: string;
 }
 
 export function Meeting({ hearing, onReset }: MeetingProps) {
@@ -23,8 +28,12 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
   const [phase, setPhase] = useState<"meeting" | "pokapoka" | "conclusion">(
     "meeting"
   );
-  const [displayedCount, setDisplayedCount] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  // 確定済みメッセージ（再描画を防ぐ）
+  const [confirmedMessages, setConfirmedMessages] = useState<
+    ConfirmedMessage[]
+  >([]);
+  const [finalResult, setFinalResult] = useState<MeetingResult | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 初回マウント時にsubmit
@@ -37,50 +46,71 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
   const messages = object?.messages ?? [];
 
-  // メッセージが増えたら表示数を更新
+  // 新しい完全なメッセージを確定済みに追加
   useEffect(() => {
-    if (messages.length > displayedCount) {
-      const timer = setTimeout(() => {
-        setDisplayedCount(messages.length);
-      }, 300);
-      return () => clearTimeout(timer);
+    const newConfirmed: ConfirmedMessage[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (msg?.cat && msg?.text && i >= confirmedMessages.length) {
+        // 最後のメッセージ以外は確定（最後はまだストリーミング中の可能性）
+        if (i < messages.length - 1 || !isLoading) {
+          newConfirmed.push({ cat: msg.cat, text: msg.text });
+        }
+      }
     }
-  }, [messages.length, displayedCount]);
+    if (newConfirmed.length > 0) {
+      setConfirmedMessages((prev) => [...prev, ...newConfirmed]);
+    }
+  }, [messages.length, isLoading, confirmedMessages.length, messages]);
 
-  // 会議完了 → ポカポカ演出へ
+  // 現在ストリーミング中のメッセージ（最後の1件）
+  const streamingMessage =
+    isLoading && messages.length > confirmedMessages.length
+      ? messages[messages.length - 1]
+      : null;
+
+  // 会議完了 → 結果を保存してポカポカ演出へ
   useEffect(() => {
-    if (
-      !isLoading &&
-      object?.messages &&
-      object.messages.length > 0 &&
-      phase === "meeting"
-    ) {
+    if (!isLoading && object?.messages && object.messages.length > 0 && phase === "meeting") {
+      const completeMessages = (object.messages ?? [])
+        .filter((m) => !!m?.cat && !!m?.text)
+        .map((m) => ({ cat: m!.cat!, text: m!.text! }));
+      const completeStrategies = (object.strategies ?? [])
+        .filter((s): s is string => s !== undefined);
+      setFinalResult({
+        messages: completeMessages,
+        conclusion: object.conclusion ?? "",
+        strategies: completeStrategies,
+        finalWord: object.finalWord ?? "",
+      } as MeetingResult);
       const timer = setTimeout(() => {
         setPhase("pokapoka");
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [isLoading, object?.messages, phase]);
+  }, [isLoading, object, phase]);
 
   // 自動スクロール
-  useEffect(() => {
+  const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [displayedCount, isLoading]);
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [confirmedMessages.length, streamingMessage, isLoading, scrollToBottom]);
 
   if (phase === "pokapoka") {
     return <PokapokaBattle onComplete={() => setPhase("conclusion")} />;
   }
 
-  if (phase === "conclusion" && object) {
+  if (phase === "conclusion" && finalResult) {
     return (
       <Conclusion
-        conclusion={object.conclusion ?? ""}
-        strategies={(object.strategies ?? []).filter(
-          (s): s is string => s !== undefined
-        )}
-        finalWord={object.finalWord ?? ""}
+        conclusion={finalResult.conclusion}
+        strategies={finalResult.strategies}
+        finalWord={finalResult.finalWord}
         onReset={onReset}
       />
     );
@@ -89,48 +119,26 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
   return (
     <div className="flex flex-col min-h-screen px-4 py-6 max-w-md mx-auto w-full">
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto pb-4">
-        {messages.slice(0, displayedCount).map((msg, i) => {
-          if (!msg?.cat || !msg?.text) return null;
-          const isLeft = i % 2 === 0;
-          return (
-            <div
-              key={i}
-              className={`flex animate-fade-in ${isLeft ? "justify-start" : "justify-end"}`}
-            >
-              {isLeft && (
-                <CatIcon
-                  name={msg.cat as CatName}
-                  size={40}
-                  className="mr-1 shrink-0 self-center"
-                />
-              )}
-              <Card
-                className={`max-w-[75%] ${
-                  isLeft
-                    ? "bg-white border-amber-200"
-                    : "bg-amber-50 border-amber-200"
-                }`}
-              >
-                <CardContent className="px-4 py-3">
-                  <p className="text-xs font-bold text-amber-600 mb-1">
-                    {msg.cat}
-                  </p>
-                  <p className="text-sm">{msg.text}</p>
-                </CardContent>
-              </Card>
-              {!isLeft && (
-                <CatIcon
-                  name={msg.cat as CatName}
-                  size={40}
-                  className="ml-1 shrink-0 self-center"
-                />
-              )}
-            </div>
-          );
-        })}
+        {/* 確定済みメッセージ（再描画しない） */}
+        {confirmedMessages.map((msg, i) => (
+          <MessageBubble key={`confirmed-${i}`} msg={msg} index={i} />
+        ))}
+
+        {/* ストリーミング中のメッセージ */}
+        {streamingMessage?.cat && streamingMessage?.text && (
+          <MessageBubble
+            key={`streaming-${confirmedMessages.length}`}
+            msg={{
+              cat: streamingMessage.cat,
+              text: streamingMessage.text,
+            }}
+            index={confirmedMessages.length}
+            isStreaming
+          />
+        )}
 
         {/* タイピングインジケーター */}
-        {isLoading && (
+        {isLoading && !streamingMessage?.text && (
           <div className="flex justify-start animate-fade-in">
             <Card className="bg-white border-amber-200">
               <CardContent className="px-4 py-3">
@@ -144,6 +152,50 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function MessageBubble({
+  msg,
+  index,
+  isStreaming,
+}: {
+  msg: { cat: string; text: string };
+  index: number;
+  isStreaming?: boolean;
+}) {
+  const isLeft = index % 2 === 0;
+  return (
+    <div
+      className={`flex ${!isStreaming ? "animate-fade-in" : ""} ${isLeft ? "justify-start" : "justify-end"}`}
+    >
+      {isLeft && (
+        <CatIcon
+          name={msg.cat as CatName}
+          size={40}
+          className="mr-1 shrink-0 self-center"
+        />
+      )}
+      <Card
+        className={`max-w-[75%] ${
+          isLeft
+            ? "bg-white border-amber-200"
+            : "bg-amber-50 border-amber-200"
+        }`}
+      >
+        <CardContent className="px-4 py-3">
+          <p className="text-xs font-bold text-amber-600 mb-1">{msg.cat}</p>
+          <p className="text-sm">{msg.text}</p>
+        </CardContent>
+      </Card>
+      {!isLeft && (
+        <CatIcon
+          name={msg.cat as CatName}
+          size={40}
+          className="ml-1 shrink-0 self-center"
+        />
+      )}
     </div>
   );
 }

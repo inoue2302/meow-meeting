@@ -144,34 +144,104 @@
   animation: fade-in 0.3s ease-out;
 }
 
-@keyframes poka-left {
+/* ポカポカ - 4方向それぞれ違う動き */
+@keyframes poka-tl {
   0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  25% { transform: translate(8px, -4px) rotate(5deg); }
-  50% { transform: translate(-4px, 6px) rotate(-3deg); }
-  75% { transform: translate(6px, 2px) rotate(4deg); }
+  20% { transform: translate(12px, 8px) rotate(8deg); }
+  40% { transform: translate(-6px, -4px) rotate(-5deg); }
+  60% { transform: translate(10px, -6px) rotate(6deg); }
+  80% { transform: translate(-8px, 4px) rotate(-4deg); }
 }
 
-@keyframes poka-right {
+@keyframes poka-tr {
   0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  25% { transform: translate(-8px, -4px) rotate(-5deg); }
-  50% { transform: translate(4px, 6px) rotate(3deg); }
-  75% { transform: translate(-6px, 2px) rotate(-4deg); }
+  20% { transform: translate(-12px, 6px) rotate(-8deg); }
+  40% { transform: translate(8px, -8px) rotate(6deg); }
+  60% { transform: translate(-6px, 10px) rotate(-5deg); }
+  80% { transform: translate(4px, -4px) rotate(3deg); }
+}
+
+@keyframes poka-bl {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(8px, -10px) rotate(6deg); }
+  40% { transform: translate(-10px, 6px) rotate(-7deg); }
+  60% { transform: translate(6px, -4px) rotate(4deg); }
+  80% { transform: translate(-4px, 8px) rotate(-3deg); }
+}
+
+@keyframes poka-br {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-10px, -8px) rotate(-6deg); }
+  40% { transform: translate(6px, 10px) rotate(5deg); }
+  60% { transform: translate(-8px, -6px) rotate(-4deg); }
+  80% { transform: translate(10px, 4px) rotate(6deg); }
+}
+
+/* 落ち着く動き */
+@keyframes settle-tl {
+  from { transform: translate(4px, 2px) rotate(3deg); }
+  to { transform: translate(0, 0) rotate(0deg); }
+}
+
+@keyframes settle-tr {
+  from { transform: translate(-4px, 2px) rotate(-3deg); }
+  to { transform: translate(0, 0) rotate(0deg); }
+}
+
+@keyframes settle-bl {
+  from { transform: translate(4px, -2px) rotate(2deg); }
+  to { transform: translate(0, 0) rotate(0deg); }
+}
+
+@keyframes settle-br {
+  from { transform: translate(-4px, -2px) rotate(-2deg); }
+  to { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* 煙エフェクト */
+@keyframes smoke-1 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+  50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.3; }
+}
+
+@keyframes smoke-2 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.4; }
+  50% { transform: translate(-45%, -55%) scale(1.2); opacity: 0.2; }
+}
+
+@keyframes smoke-3 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+  50% { transform: translate(-55%, -45%) scale(1.15); opacity: 0.3; }
+}
+
+/* 衝撃マーク */
+@keyframes impact {
+  0% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  30% { opacity: 1; transform: scale(1.3) rotate(15deg); }
+  60% { opacity: 1; transform: scale(0.9) rotate(-10deg); }
+  100% { opacity: 0; transform: scale(0.5) rotate(20deg); }
 }
 
 @keyframes pop {
-  0% { opacity: 0; transform: scale(0.5); }
-  50% { opacity: 1; transform: scale(1.2); }
-  100% { opacity: 0; transform: scale(0.8) translateY(-10px); }
+  0% { opacity: 0; transform: scale(0.5) translateY(0); }
+  30% { opacity: 1; transform: scale(1.2) translateY(-5px); }
+  70% { opacity: 1; transform: scale(1) translateY(-8px); }
+  100% { opacity: 0; transform: scale(0.8) translateY(-16px); }
 }
 
-.animate-poka-left {
-  animation: poka-left 0.4s ease-in-out infinite;
-}
+.animate-poka-tl { animation: poka-tl 0.35s ease-in-out infinite; }
+.animate-poka-tr { animation: poka-tr 0.3s ease-in-out infinite; }
+.animate-poka-bl { animation: poka-bl 0.38s ease-in-out infinite; }
+.animate-poka-br { animation: poka-br 0.33s ease-in-out infinite; }
 
-.animate-poka-right {
-  animation: poka-right 0.4s ease-in-out infinite;
-}
+.animate-settle-tl { animation: settle-tl 0.5s ease-out forwards; }
+.animate-settle-tr { animation: settle-tr 0.5s ease-out forwards; }
+.animate-settle-bl { animation: settle-bl 0.5s ease-out forwards; }
+.animate-settle-br { animation: settle-br 0.5s ease-out forwards; }
 
-.animate-pop {
-  animation: pop 1.2s ease-in-out infinite;
-}
+.animate-smoke-1 { animation: smoke-1 0.8s ease-in-out infinite; }
+.animate-smoke-2 { animation: smoke-2 0.7s ease-in-out infinite; }
+.animate-smoke-3 { animation: smoke-3 0.9s ease-in-out infinite; }
+
+.animate-impact { animation: impact 0.8s ease-out infinite; }
+.animate-pop { animation: pop 1.2s ease-in-out infinite; }
