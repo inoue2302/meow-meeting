@@ -22,7 +22,7 @@ interface ConfirmedMessage {
   text: string;
 }
 
-type MeetingPhase = "streaming" | "pokapoka" | "conclusion";
+type MeetingPhase = "streaming" | "done" | "pokapoka" | "conclusion";
 
 export function Meeting({ hearing, onReset }: MeetingProps) {
   const { object, submit, isLoading, error } = useObject({
@@ -90,12 +90,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
         strategies,
         finalWord: object?.finalWord ?? "",
       } as MeetingResult);
-
-      const timer = setTimeout(
-        () => setPhase("pokapoka"),
-        POKAPOKA_TRANSITION_DELAY_MS
-      );
-      return () => clearTimeout(timer);
+      setPhase("done");
     }
   }, [isLoading, confirmedMessages.length, phase, object]);
 
@@ -186,6 +181,19 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
           </div>
         )}
       </div>
+
+      {/* 会議完了 → 結果を見るボタン */}
+      {phase === "done" && (
+        <div className="pt-4 border-t border-amber-200 animate-fade-in">
+          <Button
+            onClick={() => setPhase("pokapoka")}
+            size="lg"
+            className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 rounded-xl cursor-pointer"
+          >
+            結果を見るにゃ 🐾
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
