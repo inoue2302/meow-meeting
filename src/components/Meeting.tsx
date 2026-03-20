@@ -276,7 +276,7 @@ function ChatBubble({
       >
         <CardContent className="px-4 py-3">
           <p className="text-xs font-bold text-amber-600 mb-1">{msg.cat}</p>
-          <p className={`text-sm ${isStreaming ? "min-h-[1.25rem]" : ""}`}>
+          <p className={`text-sm ${isStreaming ? "min-h-5" : ""}`}>
             {msg.text}
           </p>
         </CardContent>
