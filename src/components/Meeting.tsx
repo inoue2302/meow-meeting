@@ -140,7 +140,11 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
   }, [hearing, submit]);
 
   // レート制限エラー
-  const isRateLimited = error?.message?.includes("429");
+  const errorStr = String(error?.message ?? error ?? "");
+  const isRateLimited =
+    errorStr.includes("429") ||
+    errorStr.includes("Too Many") ||
+    errorStr.includes("相談しすぎ");
   if (isRateLimited) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4 max-w-md mx-auto text-center">
