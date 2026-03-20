@@ -17,3 +17,11 @@ export async function checkRateLimit(): Promise<{
   const { success, remaining } = await ratelimit.limit(GLOBAL_KEY);
   return { allowed: success, remaining };
 }
+
+export async function getRemainingLimit(): Promise<{
+  allowed: boolean;
+  remaining: number;
+}> {
+  const { remaining } = await ratelimit.getRemaining(GLOBAL_KEY);
+  return { allowed: remaining > 0, remaining };
+}
