@@ -6,6 +6,7 @@ import { Hearing } from "@/components/Hearing";
 import { Meeting } from "@/components/Meeting";
 import { RateLimitedScreen } from "@/components/RateLimitedScreen";
 import { HearingResult } from "@/lib/types";
+import { checkLimit } from "@/app/actions";
 
 type Phase = "top" | "hearing" | "meeting" | "rate-limited";
 
@@ -15,8 +16,7 @@ export default function Home() {
 
   const handleStart = async () => {
     try {
-      const res = await fetch("/api/check-limit");
-      const { allowed } = await res.json();
+      const { allowed } = await checkLimit();
       if (!allowed) {
         setPhase("rate-limited");
         return;
