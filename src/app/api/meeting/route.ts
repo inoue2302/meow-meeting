@@ -4,7 +4,7 @@ import { z } from "zod";
 import { meetingSchema } from "@/lib/schema";
 import { buildPrompt } from "@/lib/prompt";
 import { themes } from "@/lib/data/themes";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { consumeRateLimit } from "@/lib/rate-limit";
 
 const hearingResultSchema = z.object({
   themeId: z.number(),
@@ -14,16 +14,19 @@ const hearingResultSchema = z.object({
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
-  // レート制限（全体で24時間100回）
-  const { allowed, remaining } = await checkRateLimit();
-  if (!allowed) {
-    return new Response(
-      JSON.stringify({ error: "今日はもう相談しすぎにゃ...明日また来てにゃ" }),
-      {
-        status: 429,
-        headers: { "X-RateLimit-Remaining": "0" },
-      }
-    );
+  // レート制限（全体で24時間、デフォルト100回）
+  try {
+    const { allowed } = await consumeRateLimit();
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({
+          error: "今日はもう相談しすぎにゃ...明日また来てにゃ",
+        }),
+        { status: 429 }
+      );
+    }
+  } catch {
+    // Redis障害時はフェイルオープン（通過させる）
   }
 
   let body;
@@ -59,9 +62,7 @@ export async function POST(request: Request) {
       temperature: 1,
     });
 
-    const response = result.toTextStreamResponse();
-    response.headers.set("X-RateLimit-Remaining", String(remaining));
-    return response;
+    return result.toTextStreamResponse();
   } catch {
     return new Response(JSON.stringify({ error: "API error" }), {
       status: 502,
