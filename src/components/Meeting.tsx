@@ -168,22 +168,29 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
           <MessageBubble key={`msg-${i}`} msg={msg} index={i} />
         ))}
 
-        {showTypingIndicator && (
-          <div className="flex justify-start animate-fade-in items-center">
-            {nextCat && (
-              <CatIcon name={nextCat} size={56} className="mr-1 shrink-0" />
-            )}
-            <Card className="bg-white border-amber-200">
-              <CardContent className="px-4 py-3">
-                <div className="flex gap-1.5 items-center h-5">
-                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:300ms]" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {showTypingIndicator && (() => {
+          const nextIndex = displayedMessages.length;
+          const isLeft = nextIndex % 2 === 0;
+          return (
+            <div className={`flex animate-fade-in items-center ${isLeft ? "justify-start" : "justify-end"}`}>
+              {isLeft && nextCat && (
+                <CatIcon name={nextCat} size={56} className="mr-1 shrink-0" />
+              )}
+              <Card className="bg-white border-amber-200">
+                <CardContent className="px-4 py-3">
+                  <div className="flex gap-1.5 items-center h-5">
+                    <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                    <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                    <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                  </div>
+                </CardContent>
+              </Card>
+              {!isLeft && nextCat && (
+                <CatIcon name={nextCat} size={56} className="ml-1 shrink-0" />
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
