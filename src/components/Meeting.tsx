@@ -2,12 +2,18 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { readStreamableValue } from "@ai-sdk/rsc";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CatIcon } from "@/components/CatIcon";
+import { ChatBubble } from "@/components/ChatBubble";
+import { TypingIndicator } from "@/components/TypingIndicator";
 import { RateLimitedScreen } from "@/components/RateLimitedScreen";
 import { MeetingResult } from "@/lib/schema";
-import { HearingResult, CatName, isCatName } from "@/lib/types";
+import { HearingResult, isCatName } from "@/lib/types";
+import {
+  ConfirmedMessage,
+  PartialMeetingObject,
+  toConfirmedMessages,
+  buildFinalResult,
+} from "@/lib/meeting-utils";
 import { PokapokaBattle } from "@/components/PokapokaBattle";
 import { Conclusion } from "@/components/Conclusion";
 import { generateMeeting } from "@/app/actions";
@@ -17,24 +23,23 @@ interface MeetingProps {
   onReset: () => void;
 }
 
-interface ConfirmedMessage {
-  cat: CatName;
-  text: string;
-}
-
-type MeetingPhase = "streaming" | "done" | "pokapoka" | "conclusion" | "error" | "rate-limited";
-
-// MeetingResultからDeepPartialを導出
-type PartialMeetingObject = {
-  [K in keyof MeetingResult]?: MeetingResult[K] extends Array<infer U>
-    ? Array<U extends object ? { [P in keyof U]?: U[P] } : U | undefined>
-    : MeetingResult[K];
-};
+type MeetingPhase =
+  | "streaming"
+  | "done"
+  | "pokapoka"
+  | "conclusion"
+  | "error"
+  | "rate-limited";
 
 export function Meeting({ hearing, onReset }: MeetingProps) {
   const [phase, setPhase] = useState<MeetingPhase>("streaming");
-  const [confirmedMessages, setConfirmedMessages] = useState<ConfirmedMessage[]>([]);
-  const [streamingMsg, setStreamingMsg] = useState<{ cat: string; text: string } | null>(null);
+  const [confirmedMessages, setConfirmedMessages] = useState<
+    ConfirmedMessage[]
+  >([]);
+  const [streamingMsg, setStreamingMsg] = useState<{
+    cat: string;
+    text: string;
+  } | null>(null);
   const [finalResult, setFinalResult] = useState<MeetingResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
@@ -51,27 +56,19 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     (async () => {
       try {
         const { object } = await generateMeeting(hearing);
-
         let lastObject: PartialMeetingObject | null = null;
 
         for await (const partialObject of readStreamableValue(object)) {
           if (!partialObject) continue;
           lastObject = partialObject as PartialMeetingObject;
           const messages = lastObject.messages ?? [];
-
-          // 最後の1件以外は完成 → 確定
           const newCompleteUpTo = Math.max(0, messages.length - 1);
 
+          // 完成したメッセージを確定
           if (newCompleteUpTo > confirmedUpTo) {
-            const newConfirmed: ConfirmedMessage[] = messages
-              .slice(confirmedUpTo, newCompleteUpTo)
-              .flatMap((msg) => {
-                if (msg?.cat && msg?.text && isCatName(msg.cat)) {
-                  return [{ cat: msg.cat, text: msg.text }];
-                }
-                return [];
-              });
-
+            const newConfirmed = toConfirmedMessages(
+              messages.slice(confirmedUpTo, newCompleteUpTo)
+            );
             if (newConfirmed.length > 0) {
               setConfirmedMessages((prev) => [...prev, ...newConfirmed]);
             }
@@ -80,73 +77,55 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
           // ストリーミング中の最後のメッセージ
           const lastMsg = messages[messages.length - 1];
-          if (lastMsg?.cat && lastMsg?.text) {
-            setStreamingMsg({ cat: lastMsg.cat, text: lastMsg.text });
-          } else {
-            setStreamingMsg(null);
-          }
-        }
-
-        // ストリーム完了 → 最後のメッセージも確定
-        if (lastObject?.messages) {
-          const allMessages: ConfirmedMessage[] = lastObject.messages
-            .flatMap((msg) => {
-              if (msg?.cat && msg?.text && isCatName(msg.cat)) {
-                return [{ cat: msg.cat, text: msg.text }];
-              }
-              return [];
-            });
-
-          setConfirmedMessages(allMessages);
-          setStreamingMsg(null);
-
-          const strategies = (lastObject.strategies ?? []).filter(
-            (s): s is string => s !== undefined
+          setStreamingMsg(
+            lastMsg?.cat && lastMsg?.text
+              ? { cat: lastMsg.cat, text: lastMsg.text }
+              : null
           );
-
-          if (lastObject.conclusion) {
-            const result: MeetingResult = {
-              messages: allMessages,
-              conclusion: lastObject.conclusion,
-              strategies: [
-                strategies[0] ?? "",
-                strategies[1] ?? "",
-                strategies[2] ?? "",
-              ],
-              finalWord: lastObject.finalWord ?? "",
-            };
-            setFinalResult(result);
-            setPhase("done");
-          } else {
-            // conclusionが無い → エラー
-            setPhase("error");
-          }
-        } else {
-          // messagesが無い → エラー
-          setPhase("error");
         }
 
-        setIsLoading(false);
+        // ストリーム完了
+        handleStreamComplete(lastObject);
       } catch (e) {
-        setIsLoading(false);
-        const msg = e instanceof Error ? e.message : "";
-        if (msg.includes("RATE_LIMITED")) {
-          setPhase("rate-limited");
-        } else {
-          setPhase("error");
-        }
+        handleStreamError(e);
       }
     })();
+
+    function handleStreamComplete(lastObject: PartialMeetingObject | null) {
+      setIsLoading(false);
+      setStreamingMsg(null);
+
+      if (!lastObject?.messages) {
+        setPhase("error");
+        return;
+      }
+
+      const allMessages = toConfirmedMessages(lastObject.messages);
+      setConfirmedMessages(allMessages);
+
+      const result = buildFinalResult(lastObject, allMessages);
+      if (!result) {
+        setPhase("error");
+        return;
+      }
+
+      setFinalResult(result);
+      setPhase("done");
+    }
+
+    function handleStreamError(e: unknown) {
+      setIsLoading(false);
+      const msg = e instanceof Error ? e.message : "";
+      setPhase(msg.includes("RATE_LIMITED") ? "rate-limited" : "error");
+    }
   }, [hearing, retryCount]);
 
   // 自動スクロール（メッセージ確定時のみ）
   const scrollToBottom = useCallback(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, []);
 
   useEffect(() => {
@@ -155,15 +134,18 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
   // ストリーミング中のスクロール追従
   useEffect(() => {
-    if (streamingMsg?.text && scrollRef.current) {
-      scrollRef.current.scrollTo({
+    if (streamingMsg?.text) {
+      scrollRef.current?.scrollTo({
         top: scrollRef.current.scrollHeight,
         behavior: "instant",
       });
     }
   });
 
-  const handlePokapokaComplete = useCallback(() => setPhase("conclusion"), []);
+  const handlePokapokaComplete = useCallback(
+    () => setPhase("conclusion"),
+    []
+  );
 
   const handleRetry = useCallback(() => {
     submittedRef.current = false;
@@ -212,30 +194,24 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     <div className="flex flex-col min-h-screen px-4 py-6 max-w-md mx-auto w-full">
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto pb-4">
         {confirmedMessages.map((msg, i) => (
-          <ChatBubble key={`msg-${i}`} msg={msg} index={i} />
+          <ChatBubble
+            key={`msg-${i}`}
+            cat={msg.cat}
+            text={msg.text}
+            index={i}
+          />
         ))}
 
         {streamingMsg && isCatName(streamingMsg.cat) && (
           <ChatBubble
-            msg={{ cat: streamingMsg.cat, text: streamingMsg.text }}
+            cat={streamingMsg.cat}
+            text={streamingMsg.text}
             index={confirmedMessages.length}
             isStreaming
           />
         )}
 
-        {isLoading && !streamingMsg?.text && (
-          <div className="flex justify-start animate-fade-in items-center">
-            <Card className="bg-white border-amber-200">
-              <CardContent className="px-4 py-3">
-                <div className="flex gap-1.5 items-center h-5">
-                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:300ms]" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {isLoading && !streamingMsg?.text && <TypingIndicator />}
       </div>
 
       {phase === "done" && (
@@ -248,52 +224,6 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
             結果を見るにゃ 🐾
           </Button>
         </div>
-      )}
-    </div>
-  );
-}
-
-function ChatBubble({
-  msg,
-  index,
-  isStreaming,
-}: {
-  msg: ConfirmedMessage;
-  index: number;
-  isStreaming?: boolean;
-}) {
-  const isLeft = index % 2 === 0;
-  return (
-    <div className={`flex ${isLeft ? "justify-start" : "justify-end"}`}>
-      {isLeft && (
-        <CatIcon
-          name={msg.cat}
-          size={56}
-          className="mr-1 shrink-0 self-center"
-        />
-      )}
-      <Card
-        className={`max-w-[75%] ${
-          isStreaming ? "transition-all duration-200 ease-out" : ""
-        } ${
-          isLeft
-            ? "bg-white border-amber-200"
-            : "bg-amber-50 border-amber-200"
-        }`}
-      >
-        <CardContent className="px-4 py-3">
-          <p className="text-xs font-bold text-amber-600 mb-1">{msg.cat}</p>
-          <p className={`text-sm ${isStreaming ? "min-h-5" : ""}`}>
-            {msg.text}
-          </p>
-        </CardContent>
-      </Card>
-      {!isLeft && (
-        <CatIcon
-          name={msg.cat}
-          size={56}
-          className="ml-1 shrink-0 self-center"
-        />
       )}
     </div>
   );

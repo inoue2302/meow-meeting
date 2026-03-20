@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CatIcon } from "@/components/CatIcon";
+import { TypingIndicator } from "@/components/TypingIndicator";
 import { themes } from "@/lib/data/themes";
 import { HearingResult } from "@/lib/types";
 
@@ -95,39 +96,47 @@ export function Hearing({ onComplete }: HearingProps) {
     };
   }, []);
 
+  const handleThemeSelection = (option: string) => {
+    const theme = themes.find((t) => t.label === option);
+    if (!theme) return;
+    setSelectedThemeId(theme.id);
+    setPendingMessages([
+      { speaker: "トラ", text: `「${option}」にゃね。もう少し聞かせてにゃ。` },
+      { speaker: "トラ", text: theme.questions[0].question },
+    ]);
+  };
+
+  const handleQuestionAnswer = (option: string) => {
+    if (!selectedTheme) return;
+    const newAnswers = [...answers, option];
+    setAnswers(newAnswers);
+
+    if (newAnswers.length < selectedTheme.questions.length) {
+      setPendingMessages([
+        { speaker: "トラ", text: selectedTheme.questions[newAnswers.length].question },
+      ]);
+      return;
+    }
+
+    setPendingMessages([
+      { speaker: "トラ", text: "なるほどにゃ...みんな集めるにゃ！" },
+    ]);
+    setIsCompletingHearing(true);
+    transitionTimerRef.current = setTimeout(() => {
+      onComplete({ themeId: selectedTheme.id, answers: newAnswers });
+    }, TRANSITION_DELAY_MS);
+  };
+
   const handleSelect = (option: string) => {
     if (isCompletingHearing || pendingMessages.length > 0 || isTyping) return;
 
     setShowOptions(false);
-
-    // ユーザーの選択をすぐ表示
     setDisplayedMessages((prev) => [...prev, { speaker: "user", text: option }]);
 
     if (!isThemeSelected) {
-      const theme = themes.find((t) => t.label === option);
-      if (!theme) return;
-      setSelectedThemeId(theme.id);
-      setPendingMessages([
-        { speaker: "トラ", text: `「${option}」にゃね。もう少し聞かせてにゃ。` },
-        { speaker: "トラ", text: theme.questions[0].question },
-      ]);
-    } else if (selectedTheme) {
-      const newAnswers = [...answers, option];
-      setAnswers(newAnswers);
-
-      if (newAnswers.length < selectedTheme.questions.length) {
-        setPendingMessages([
-          { speaker: "トラ", text: selectedTheme.questions[newAnswers.length].question },
-        ]);
-      } else {
-        setPendingMessages([
-          { speaker: "トラ", text: "なるほどにゃ...みんな集めるにゃ！" },
-        ]);
-        setIsCompletingHearing(true);
-        transitionTimerRef.current = setTimeout(() => {
-          onComplete({ themeId: selectedTheme.id, answers: newAnswers });
-        }, TRANSITION_DELAY_MS);
-      }
+      handleThemeSelection(option);
+    } else {
+      handleQuestionAnswer(option);
     }
   };
 
@@ -157,21 +166,7 @@ export function Hearing({ onComplete }: HearingProps) {
           </div>
         ))}
 
-        {/* タイピングインジケーター */}
-        {isTyping && (
-          <div className="flex justify-start animate-fade-in">
-            <CatIcon name="トラ" size={40} className="mr-1 shrink-0 self-center" />
-            <Card className="bg-white border-amber-200">
-              <CardContent className="px-4 py-3">
-                <div className="flex gap-1.5 items-center h-5">
-                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:300ms]" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {isTyping && <TypingIndicator />}
       </div>
 
       {/* 選択肢 */}
