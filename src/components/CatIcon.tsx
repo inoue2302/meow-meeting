@@ -9,18 +9,18 @@ interface CatIconProps {
   className?: string;
 }
 
-const catSvgPaths: Record<CatName, string> = {
-  モチ: "/cats/mochi.svg",
-  カゼ: "/cats/kaze.svg",
-  スミ: "/cats/sumi.svg",
-  トラ: "/cats/tora.svg",
+const catImagePaths: Record<CatName, string> = {
+  モチ: "/cats/mochi.png",
+  カゼ: "/cats/kaze.png",
+  スミ: "/cats/sumi.png",
+  トラ: "/cats/tora.png",
 };
 
 export function CatIcon({ name, size = 48, className }: CatIconProps) {
   return (
     <div className={`flex items-center justify-center ${className ?? ""}`}>
       <Image
-        src={catSvgPaths[name]}
+        src={catImagePaths[name]}
         alt={`${name}のアイコン`}
         width={size}
         height={size}

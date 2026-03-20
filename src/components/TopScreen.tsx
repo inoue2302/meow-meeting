@@ -14,20 +14,20 @@ export function TopScreen({ onStart }: TopScreenProps) {
       <Card className="max-w-md w-full text-center shadow-lg border-amber-200 bg-white/80">
         <CardContent className="pt-8 pb-6 px-6 space-y-6">
           {/* 4匹集合 */}
-          <div className="relative h-32 mx-auto w-64">
+          <div className="relative h-44 mx-auto w-72">
             {/* 後列 */}
-            <div className="absolute left-6 top-0">
-              <CatIcon name="スミ" size={72} />
+            <div className="absolute left-2 top-0">
+              <CatIcon name="スミ" size={96} />
             </div>
-            <div className="absolute right-6 top-0">
-              <CatIcon name="カゼ" size={72} />
+            <div className="absolute right-2 top-0">
+              <CatIcon name="カゼ" size={96} />
             </div>
             {/* 前列 */}
-            <div className="absolute left-16 top-10 z-10">
-              <CatIcon name="モチ" size={80} />
+            <div className="absolute left-14 top-12 z-10">
+              <CatIcon name="モチ" size={104} />
             </div>
-            <div className="absolute right-16 top-10 z-10">
-              <CatIcon name="トラ" size={80} />
+            <div className="absolute right-14 top-12 z-10">
+              <CatIcon name="トラ" size={104} />
             </div>
           </div>
 
