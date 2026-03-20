@@ -46,11 +46,11 @@ export function Hearing({ onComplete }: HearingProps) {
       ? selectedTheme.questions[currentQuestionIndex].options
       : [];
 
+  const bottomRef = useRef<HTMLDivElement>(null);
+
   // 自動スクロール
   const scrollToBottom = useCallback(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
   // pendingMessagesを1つずつ表示する
@@ -167,6 +167,7 @@ export function Hearing({ onComplete }: HearingProps) {
         ))}
 
         {isTyping && <TypingIndicator />}
+        <div ref={bottomRef} />
       </div>
 
       {/* 選択肢 */}
