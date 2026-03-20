@@ -69,16 +69,14 @@ export default function ProfilePage() {
         );
       })}
 
-      <div className="text-center pt-2">
-        <Link href="/">
-          <Button
-            variant="outline"
-            className="border-amber-300 hover:bg-amber-100 cursor-pointer"
-          >
-            トップに戻るにゃ
-          </Button>
-        </Link>
-      </div>
+      <Link href="/" className="block pt-2">
+        <Button
+          size="lg"
+          className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 rounded-xl cursor-pointer"
+        >
+          トップに戻るにゃ 🐾
+        </Button>
+      </Link>
     </div>
   );
 }
