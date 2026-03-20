@@ -4,6 +4,7 @@ import { z } from "zod";
 import { meetingSchema } from "@/lib/schema";
 import { buildPrompt } from "@/lib/prompt";
 import { themes } from "@/lib/data/themes";
+import { consumeRateLimit } from "@/lib/rate-limit";
 
 const hearingResultSchema = z.object({
   themeId: z.number(),
@@ -13,6 +14,21 @@ const hearingResultSchema = z.object({
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
+  // レート制限（全体で24時間、デフォルト100回）
+  try {
+    const { allowed } = await consumeRateLimit();
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({
+          error: "今日はもう相談しすぎにゃ...明日また来てにゃ",
+        }),
+        { status: 429 }
+      );
+    }
+  } catch {
+    // Redis障害時はフェイルオープン（通過させる）
+  }
+
   let body;
   try {
     body = hearingResultSchema.parse(await request.json());

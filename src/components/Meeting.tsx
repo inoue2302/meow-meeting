@@ -5,6 +5,7 @@ import { experimental_useObject as useObject } from "@ai-sdk/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CatIcon } from "@/components/CatIcon";
+import { RateLimitedScreen } from "@/components/RateLimitedScreen";
 import { meetingSchema, MeetingResult } from "@/lib/schema";
 import { HearingResult, CatName, isCatName } from "@/lib/types";
 import { PokapokaBattle } from "@/components/PokapokaBattle";
@@ -138,7 +139,17 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     submit(hearing);
   }, [hearing, submit]);
 
-  // エラー表示
+  // レート制限エラー
+  const errorStr = String(error?.message ?? error ?? "");
+  const isRateLimited =
+    errorStr.includes("429") ||
+    errorStr.includes("Too Many") ||
+    errorStr.includes("相談しすぎ");
+  if (isRateLimited) {
+    return <RateLimitedScreen onReset={onReset} />;
+  }
+
+  // その他のエラー
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">

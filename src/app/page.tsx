@@ -4,15 +4,26 @@ import { useState } from "react";
 import { TopScreen } from "@/components/TopScreen";
 import { Hearing } from "@/components/Hearing";
 import { Meeting } from "@/components/Meeting";
+import { RateLimitedScreen } from "@/components/RateLimitedScreen";
 import { HearingResult } from "@/lib/types";
 
-type Phase = "top" | "hearing" | "meeting";
+type Phase = "top" | "hearing" | "meeting" | "rate-limited";
 
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("top");
   const [hearingResult, setHearingResult] = useState<HearingResult | null>(null);
 
-  const handleStart = () => {
+  const handleStart = async () => {
+    try {
+      const res = await fetch("/api/check-limit");
+      const { allowed } = await res.json();
+      if (!allowed) {
+        setPhase("rate-limited");
+        return;
+      }
+    } catch {
+      // チェック失敗時はそのまま進める
+    }
     setPhase("hearing");
   };
 
@@ -28,6 +39,10 @@ export default function Home() {
 
   if (phase === "top") {
     return <TopScreen onStart={handleStart} />;
+  }
+
+  if (phase === "rate-limited") {
+    return <RateLimitedScreen onReset={handleReset} />;
   }
 
   if (phase === "hearing") {
