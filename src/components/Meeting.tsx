@@ -79,7 +79,12 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
   // ストリーミング完了 → done へ
   useEffect(() => {
-    if (!isLoading && phase === "streaming" && submittedRef.current) {
+    if (
+      !isLoading &&
+      phase === "streaming" &&
+      submittedRef.current &&
+      object?.conclusion
+    ) {
       const strategies = (object?.strategies ?? []).filter(
         (s): s is string => s !== undefined
       );
