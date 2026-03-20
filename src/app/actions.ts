@@ -31,7 +31,7 @@ export async function generateMeeting(input: unknown) {
   (async () => {
     try {
       const { partialOutputStream } = streamText({
-        model: anthropic("claude-sonnet-4-20250514"),
+        model: anthropic("claude-sonnet-4-6"),
         output: Output.object({ schema: meetingSchema }),
         prompt: buildPrompt(body),
         temperature: 1,
