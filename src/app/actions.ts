@@ -8,10 +8,11 @@ import { meetingSchema } from "@/lib/schema";
 import { buildPrompt } from "@/lib/prompt";
 import { themes } from "@/lib/data/themes";
 import { consumeRateLimit, peekRateLimit } from "@/lib/rate-limit";
+import { RateLimitedError } from "@/lib/errors";
 
 const hearingResultSchema = z.object({
   themeId: z.number(),
-  answers: z.array(z.string().max(200)).max(5),
+  answers: z.array(z.string().max(200)).min(1).max(5),
 });
 
 export async function generateMeeting(input: unknown) {
@@ -22,21 +23,13 @@ export async function generateMeeting(input: unknown) {
   }
   const body = parsed.data;
 
-  // レート制限
-  try {
-    const { allowed } = await consumeRateLimit();
-    if (!allowed) {
-      throw new Error("RATE_LIMITED");
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message === "RATE_LIMITED") throw e;
-    // Redis障害時はフェイルオープン
-  }
-
-  // ホワイトリスト検証
+  // ホワイトリスト検証（レート制限消費の前に実施）
   const theme = themes.find((t) => t.id === body.themeId);
   if (!theme) {
     throw new Error("Invalid themeId");
+  }
+  if (body.answers.length !== theme.questions.length) {
+    throw new Error("Invalid answers count");
   }
   const valid = body.answers.every(
     (a, i) => theme.questions[i]?.options.includes(a)
@@ -45,21 +38,36 @@ export async function generateMeeting(input: unknown) {
     throw new Error("Invalid answers");
   }
 
+  // レート制限（バリデーション通過後に消費）
+  try {
+    const { allowed } = await consumeRateLimit();
+    if (!allowed) {
+      throw new RateLimitedError();
+    }
+  } catch (e) {
+    if (e instanceof RateLimitedError) throw e;
+    // Redis障害時はフェイルオープン
+  }
+
   const stream = createStreamableValue();
 
   (async () => {
-    const { partialOutputStream } = streamText({
-      model: anthropic("claude-sonnet-4-20250514"),
-      output: Output.object({ schema: meetingSchema }),
-      prompt: buildPrompt(body),
-      temperature: 1,
-    });
+    try {
+      const { partialOutputStream } = streamText({
+        model: anthropic("claude-sonnet-4-20250514"),
+        output: Output.object({ schema: meetingSchema }),
+        prompt: buildPrompt(body),
+        temperature: 1,
+      });
 
-    for await (const partialObject of partialOutputStream) {
-      stream.update(partialObject);
+      for await (const partialObject of partialOutputStream) {
+        stream.update(partialObject);
+      }
+
+      stream.done();
+    } catch (e) {
+      stream.error(e instanceof Error ? e : new Error("Stream failed"));
     }
-
-    stream.done();
   })();
 
   return { object: stream.value };

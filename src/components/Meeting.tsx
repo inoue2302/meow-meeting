@@ -24,13 +24,12 @@ interface ConfirmedMessage {
 
 type MeetingPhase = "streaming" | "done" | "pokapoka" | "conclusion" | "error" | "rate-limited";
 
-// partialObjectの型
-interface PartialMeetingObject {
-  messages?: Array<{ cat?: string; text?: string } | undefined>;
-  conclusion?: string;
-  strategies?: Array<string | undefined>;
-  finalWord?: string;
-}
+// MeetingResultからDeepPartialを導出
+type PartialMeetingObject = {
+  [K in keyof MeetingResult]?: MeetingResult[K] extends Array<infer U>
+    ? Array<U extends object ? { [P in keyof U]?: U[P] } : U | undefined>
+    : MeetingResult[K];
+};
 
 export function Meeting({ hearing, onReset }: MeetingProps) {
   const [phase, setPhase] = useState<MeetingPhase>("streaming");
@@ -38,6 +37,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
   const [streamingMsg, setStreamingMsg] = useState<{ cat: string; text: string } | null>(null);
   const [finalResult, setFinalResult] = useState<MeetingResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const submittedRef = useRef(false);
 
@@ -46,7 +46,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     if (submittedRef.current) return;
     submittedRef.current = true;
 
-    let confirmedUpTo = 0; // この位置まで確定済み
+    let confirmedUpTo = 0;
 
     (async () => {
       try {
@@ -117,21 +117,27 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
             };
             setFinalResult(result);
             setPhase("done");
+          } else {
+            // conclusionが無い → エラー
+            setPhase("error");
           }
+        } else {
+          // messagesが無い → エラー
+          setPhase("error");
         }
 
         setIsLoading(false);
       } catch (e) {
         setIsLoading(false);
         const msg = e instanceof Error ? e.message : "";
-        if (msg === "RATE_LIMITED") {
+        if (msg.includes("RATE_LIMITED")) {
           setPhase("rate-limited");
         } else {
           setPhase("error");
         }
       }
     })();
-  }, [hearing]);
+  }, [hearing, retryCount]);
 
   // 自動スクロール（メッセージ確定時のみ）
   const scrollToBottom = useCallback(() => {
@@ -166,6 +172,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     setStreamingMsg(null);
     setFinalResult(null);
     setIsLoading(true);
+    setRetryCount((prev) => prev + 1);
   }, []);
 
   if (phase === "rate-limited") {
