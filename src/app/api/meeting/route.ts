@@ -1,9 +1,11 @@
 import { streamText, Output } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
+import { headers } from "next/headers";
 import { meetingSchema } from "@/lib/schema";
 import { buildPrompt } from "@/lib/prompt";
 import { themes } from "@/lib/data/themes";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const hearingResultSchema = z.object({
   themeId: z.number(),
@@ -13,6 +15,21 @@ const hearingResultSchema = z.object({
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
+  // レート制限
+  const headersList = await headers();
+  const ip =
+    headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const { allowed, remaining } = checkRateLimit(ip);
+  if (!allowed) {
+    return new Response(
+      JSON.stringify({ error: "今日はもう相談しすぎにゃ...明日また来てにゃ" }),
+      {
+        status: 429,
+        headers: { "X-RateLimit-Remaining": "0" },
+      }
+    );
+  }
+
   let body;
   try {
     body = hearingResultSchema.parse(await request.json());
@@ -46,7 +63,9 @@ export async function POST(request: Request) {
       temperature: 1,
     });
 
-    return result.toTextStreamResponse();
+    const response = result.toTextStreamResponse();
+    response.headers.set("X-RateLimit-Remaining", String(remaining));
+    return response;
   } catch {
     return new Response(JSON.stringify({ error: "API error" }), {
       status: 502,
