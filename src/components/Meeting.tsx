@@ -103,14 +103,13 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
       const allMessages = toConfirmedMessages(lastObject.messages);
       setConfirmedMessages(allMessages);
 
-      const result = buildFinalResult(lastObject, allMessages);
-      if (!result) {
-        setPhase("error");
-        return;
-      }
-
-      setFinalResult(result);
+      // ボタンを即表示（conclusionは後から反映される）
       setPhase("done");
+
+      const result = buildFinalResult(lastObject, allMessages);
+      if (result) {
+        setFinalResult(result);
+      }
     }
 
     function isRateLimitError(e: unknown): boolean {

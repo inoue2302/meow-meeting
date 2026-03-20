@@ -1,15 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CatIcon } from "@/components/CatIcon";
 
 interface TopScreenProps {
-  onStart: () => void;
+  onStart: () => void | Promise<void>;
 }
 
 export function TopScreen({ onStart }: TopScreenProps) {
+  const [isStarting, setIsStarting] = useState(false);
+
+  const handleClick = async () => {
+    setIsStarting(true);
+    await onStart();
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
       <Card className="max-w-md w-full text-center shadow-lg border-amber-200 bg-white/80">
@@ -50,11 +58,12 @@ export function TopScreen({ onStart }: TopScreenProps) {
           </p>
 
           <Button
-            onClick={onStart}
+            onClick={handleClick}
+            disabled={isStarting}
             size="lg"
-            className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 rounded-xl cursor-pointer"
+            className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 rounded-xl cursor-pointer disabled:opacity-70"
           >
-            相談するにゃ 🐾
+            {isStarting ? "準備中にゃ..." : "相談するにゃ 🐾"}
           </Button>
 
           <Link href="/profile">
