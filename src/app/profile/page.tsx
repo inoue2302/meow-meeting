@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CatIcon } from "@/components/CatIcon";
@@ -69,14 +68,14 @@ export default function ProfilePage() {
         );
       })}
 
-      <Link href="/" className="block pt-2">
+      <a href="/" className="block pt-2">
         <Button
           size="lg"
           className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 rounded-xl cursor-pointer"
         >
           トップに戻るにゃ 🐾
         </Button>
-      </Link>
+      </a>
     </div>
   );
 }
