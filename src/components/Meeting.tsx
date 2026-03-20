@@ -52,6 +52,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     submittedRef.current = true;
 
     let confirmedUpTo = 0;
+    let transitioned = false;
 
     (async () => {
       try {
@@ -82,6 +83,18 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
               ? { cat: lastMsg.cat, text: lastMsg.text }
               : null
           );
+
+          // conclusionが来たら即ボタン表示（ループ完了を待たない）
+          if (lastObject.conclusion && !transitioned) {
+            transitioned = true;
+            const allMessages = toConfirmedMessages(messages);
+            setConfirmedMessages(allMessages);
+            setStreamingMsg(null);
+            const result = buildFinalResult(lastObject, allMessages);
+            if (result) setFinalResult(result);
+            setPhase("done");
+            setIsLoading(false);
+          }
         }
 
         // ストリーム完了
