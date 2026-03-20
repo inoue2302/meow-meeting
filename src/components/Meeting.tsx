@@ -10,7 +10,7 @@ import { HearingResult, CatName } from "@/lib/types";
 import { PokapokaBattle } from "@/components/PokapokaBattle";
 import { Conclusion } from "@/components/Conclusion";
 
-const POKAPOKA_TRANSITION_DELAY_MS = 1500;
+const EMPTY_MESSAGES: never[] = [];
 
 interface MeetingProps {
   hearing: HearingResult;
@@ -45,13 +45,14 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     }
   }, [hearing, submit]);
 
-  const messages = object?.messages ?? [];
+  const messages = object?.messages ?? EMPTY_MESSAGES;
+  const messagesLen = messages.length;
 
   // 完成したメッセージを確定（次のメッセージが来た = 前のは完成）
   useEffect(() => {
     const completedCount = isLoading
-      ? Math.max(0, messages.length - 1)
-      : messages.length;
+      ? Math.max(0, messagesLen - 1)
+      : messagesLen;
 
     if (completedCount > confirmedCountRef.current) {
       const newConfirmed: ConfirmedMessage[] = [];
@@ -63,24 +64,20 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
       }
       if (newConfirmed.length > 0) {
         setConfirmedMessages((prev) => [...prev, ...newConfirmed]);
+        confirmedCountRef.current += newConfirmed.length;
       }
-      confirmedCountRef.current = completedCount;
     }
-  }, [messages.length, isLoading, messages]);
+  }, [messagesLen, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ストリーミング中の最後のメッセージ
   const streamingMsg =
-    isLoading && messages.length > confirmedCountRef.current
-      ? messages[messages.length - 1]
+    isLoading && messagesLen > confirmedCountRef.current
+      ? messages[messagesLen - 1]
       : null;
 
-  // ストリーミング完了 → ポカポカへ
+  // ストリーミング完了 → done へ
   useEffect(() => {
-    if (
-      !isLoading &&
-      confirmedMessages.length > 0 &&
-      phase === "streaming"
-    ) {
+    if (!isLoading && phase === "streaming" && submittedRef.current) {
       const strategies = (object?.strategies ?? []).filter(
         (s): s is string => s !== undefined
       );
@@ -92,9 +89,9 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
       } as MeetingResult);
       setPhase("done");
     }
-  }, [isLoading, confirmedMessages.length, phase, object]);
+  }, [isLoading, phase, confirmedMessages, object]);
 
-  // 自動スクロール（smooth）
+  // 自動スクロール（メッセージ確定時のみ）
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -106,7 +103,17 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
   useEffect(() => {
     scrollToBottom();
-  }, [confirmedMessages.length, streamingMsg?.text, scrollToBottom]);
+  }, [confirmedMessages.length, scrollToBottom]);
+
+  // ストリーミング中のスクロール追従（instant でガタつき防止）
+  useEffect(() => {
+    if (streamingMsg?.text && scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: "instant",
+      });
+    }
+  }); // 毎レンダーで実行（RAF相当）
 
   const handlePokapokaComplete = useCallback(() => setPhase("conclusion"), []);
 
@@ -154,20 +161,20 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto pb-4">
         {/* 確定済みメッセージ */}
         {confirmedMessages.map((msg, i) => (
-          <MessageBubble key={`msg-${i}`} msg={msg} index={i} />
+          <ChatBubble key={`msg-${i}`} msg={msg} index={i} />
         ))}
 
         {/* ストリーミング中のメッセージ（リアルタイム表示） */}
         {streamingMsg?.cat && streamingMsg?.text && (
-          <StreamingBubble
-            cat={streamingMsg.cat as CatName}
-            text={streamingMsg.text}
+          <ChatBubble
+            msg={{ cat: streamingMsg.cat as CatName, text: streamingMsg.text }}
             index={confirmedMessages.length}
+            isStreaming
           />
         )}
 
         {/* タイピングインジケーター（まだテキストが来ていない時） */}
-        {isLoading && (!streamingMsg?.text) && (
+        {isLoading && !streamingMsg?.text && (
           <div className="flex justify-start animate-fade-in items-center">
             <Card className="bg-white border-amber-200">
               <CardContent className="px-4 py-3">
@@ -198,18 +205,18 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
   );
 }
 
-function MessageBubble({
+function ChatBubble({
   msg,
   index,
+  isStreaming,
 }: {
   msg: ConfirmedMessage;
   index: number;
+  isStreaming?: boolean;
 }) {
   const isLeft = index % 2 === 0;
   return (
-    <div
-      className={`flex ${isLeft ? "justify-start" : "justify-end"}`}
-    >
+    <div className={`flex ${isLeft ? "justify-start" : "justify-end"}`}>
       {isLeft && (
         <CatIcon
           name={msg.cat}
@@ -219,6 +226,8 @@ function MessageBubble({
       )}
       <Card
         className={`max-w-[75%] ${
+          isStreaming ? "transition-all duration-200 ease-out" : ""
+        } ${
           isLeft
             ? "bg-white border-amber-200"
             : "bg-amber-50 border-amber-200"
@@ -226,56 +235,14 @@ function MessageBubble({
       >
         <CardContent className="px-4 py-3">
           <p className="text-xs font-bold text-amber-600 mb-1">{msg.cat}</p>
-          <p className="text-sm">{msg.text}</p>
+          <p className={`text-sm ${isStreaming ? "min-h-[1.25rem]" : ""}`}>
+            {msg.text}
+          </p>
         </CardContent>
       </Card>
       {!isLeft && (
         <CatIcon
           name={msg.cat}
-          size={56}
-          className="ml-1 shrink-0 self-center"
-        />
-      )}
-    </div>
-  );
-}
-
-function StreamingBubble({
-  cat,
-  text,
-  index,
-}: {
-  cat: CatName;
-  text: string;
-  index: number;
-}) {
-  const isLeft = index % 2 === 0;
-  return (
-    <div
-      className={`flex ${isLeft ? "justify-start" : "justify-end"}`}
-    >
-      {isLeft && (
-        <CatIcon
-          name={cat}
-          size={56}
-          className="mr-1 shrink-0 self-center"
-        />
-      )}
-      <Card
-        className={`max-w-[75%] transition-all duration-200 ease-out ${
-          isLeft
-            ? "bg-white border-amber-200"
-            : "bg-amber-50 border-amber-200"
-        }`}
-      >
-        <CardContent className="px-4 py-3">
-          <p className="text-xs font-bold text-amber-600 mb-1">{cat}</p>
-          <p className="text-sm min-h-[1.25rem]">{text}</p>
-        </CardContent>
-      </Card>
-      {!isLeft && (
-        <CatIcon
-          name={cat}
           size={56}
           className="ml-1 shrink-0 self-center"
         />
