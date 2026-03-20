@@ -1,9 +1,11 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
+const MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX ?? 100);
+
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
-  limiter: Ratelimit.fixedWindow(100, "24 h"),
+  limiter: Ratelimit.fixedWindow(MAX_REQUESTS, "24 h"),
 });
 
 const GLOBAL_KEY = "meow-meeting-global";
