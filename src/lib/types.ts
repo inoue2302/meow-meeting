@@ -1,4 +1,5 @@
-export type CatName = "モチ" | "カゼ" | "スミ" | "トラ";
+export const CAT_NAMES = ["モチ", "カゼ", "スミ", "トラ"] as const;
+export type CatName = (typeof CAT_NAMES)[number];
 
 export interface Cat {
   name: CatName;

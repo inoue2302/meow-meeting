@@ -9,7 +9,7 @@ type Phase = "top" | "hearing" | "meeting";
 
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("top");
-  const [, setHearingResult] = useState<HearingResult | null>(null);
+  const [hearingResult, setHearingResult] = useState<HearingResult | null>(null);
 
   const handleStart = () => {
     setPhase("hearing");

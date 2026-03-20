@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { CAT_NAMES } from "@/lib/types";
 
 export const meetingSchema = z.object({
   messages: z.array(
     z.object({
-      cat: z.enum(["モチ", "カゼ", "スミ", "トラ"]),
+      cat: z.enum(CAT_NAMES),
       text: z.string(),
     })
   ),

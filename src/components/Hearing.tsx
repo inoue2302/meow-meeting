@@ -7,6 +7,10 @@ import { CatIcon } from "@/components/CatIcon";
 import { themes } from "@/lib/data/themes";
 import { HearingResult } from "@/lib/types";
 
+const TYPING_DELAY_MIN_MS = 800;
+const TYPING_DELAY_RANGE_MS = 600;
+const TRANSITION_DELAY_MS = 2500;
+
 interface HearingProps {
   onComplete: (result: HearingResult) => void;
 }
@@ -26,9 +30,10 @@ export function Hearing({ onComplete }: HearingProps) {
     { speaker: "トラ", text: "どうしたにゃ？何について相談するにゃ？" },
   ]);
   const [isTyping, setIsTyping] = useState(false);
-  const [transitioning, setTransitioning] = useState(false);
+  const [isCompletingHearing, setIsCompletingHearing] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const selectedTheme = themes.find((t) => t.id === selectedThemeId);
   const currentQuestionIndex = answers.length;
@@ -54,7 +59,10 @@ export function Hearing({ onComplete }: HearingProps) {
     setShowOptions(false);
     setIsTyping(true);
 
-    const delay = pendingMessages[0].speaker === "トラ" ? 800 + Math.random() * 600 : 0;
+    const delay =
+      pendingMessages[0].speaker === "トラ"
+        ? TYPING_DELAY_MIN_MS + Math.random() * TYPING_DELAY_RANGE_MS
+        : 0;
 
     const timer = setTimeout(() => {
       setIsTyping(false);
@@ -80,8 +88,15 @@ export function Hearing({ onComplete }: HearingProps) {
     scrollToBottom();
   }, [displayedMessages, isTyping, scrollToBottom]);
 
+  // 遷移タイマーのクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    };
+  }, []);
+
   const handleSelect = (option: string) => {
-    if (transitioning || pendingMessages.length > 0 || isTyping) return;
+    if (isCompletingHearing || pendingMessages.length > 0 || isTyping) return;
 
     setShowOptions(false);
 
@@ -108,10 +123,10 @@ export function Hearing({ onComplete }: HearingProps) {
         setPendingMessages([
           { speaker: "トラ", text: "なるほどにゃ...みんな集めるにゃ！" },
         ]);
-        setTransitioning(true);
-        setTimeout(() => {
-          onComplete({ themeId: selectedThemeId!, answers: newAnswers });
-        }, 2500);
+        setIsCompletingHearing(true);
+        transitionTimerRef.current = setTimeout(() => {
+          onComplete({ themeId: selectedTheme.id, answers: newAnswers });
+        }, TRANSITION_DELAY_MS);
       }
     }
   };
@@ -160,7 +175,7 @@ export function Hearing({ onComplete }: HearingProps) {
       </div>
 
       {/* 選択肢 */}
-      {showOptions && !transitioning && currentOptions.length > 0 && (
+      {showOptions && !isCompletingHearing && currentOptions.length > 0 && (
         <div className="space-y-2 pt-4 border-t border-amber-200 animate-fade-in">
           {currentOptions.map((option) => (
             <Button

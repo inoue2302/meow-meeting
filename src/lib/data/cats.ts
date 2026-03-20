@@ -1,6 +1,6 @@
-import { Cat } from "@/lib/types";
+import { Cat, CatName } from "@/lib/types";
 
-export const cats: Record<string, Cat> = {
+export const cats: Record<CatName, Cat> = {
   モチ: {
     name: "モチ",
     role: "共感担当",
