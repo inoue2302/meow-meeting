@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- 背景円 -->
+  <circle cx="60" cy="60" r="56" fill="#FFF0F5" />
+  <!-- 耳 -->
+  <path d="M28 42 Q22 14 40 28" fill="#FBCFE8" stroke="#8B5E3C" stroke-width="2" />
+  <path d="M92 42 Q98 14 80 28" fill="#FBCFE8" stroke="#8B5E3C" stroke-width="2" />
+  <!-- 耳の中 -->
+  <path d="M30 38 Q26 20 39 30" fill="#F9A8D4" />
+  <path d="M90 38 Q94 20 81 30" fill="#F9A8D4" />
+  <!-- 顔 -->
+  <ellipse cx="60" cy="62" rx="34" ry="30" fill="#FBCFE8" stroke="#8B5E3C" stroke-width="2.5" />
+  <!-- 白い部分（口周り） -->
+  <ellipse cx="60" cy="72" rx="20" ry="15" fill="#FFF5F7" />
+  <!-- 縞模様 -->
+  <path d="M52 36 Q55 30 58 36" stroke="#F472B6" stroke-width="2" fill="none" opacity="0.5" />
+  <path d="M62 36 Q65 30 68 36" stroke="#F472B6" stroke-width="2" fill="none" opacity="0.5" />
+  <path d="M57 32 Q60 26 63 32" stroke="#F472B6" stroke-width="2" fill="none" opacity="0.5" />
+  <!-- 目 -->
+  <ellipse cx="46" cy="56" rx="7" ry="8" fill="white" stroke="#8B5E3C" stroke-width="1.5" />
+  <ellipse cx="74" cy="56" rx="7" ry="8" fill="white" stroke="#8B5E3C" stroke-width="1.5" />
+  <ellipse cx="47" cy="57" rx="5" ry="6" fill="#EC4899" />
+  <ellipse cx="75" cy="57" rx="5" ry="6" fill="#EC4899" />
+  <ellipse cx="47" cy="57" rx="3.5" ry="4.5" fill="#BE185D" />
+  <ellipse cx="75" cy="57" rx="3.5" ry="4.5" fill="#BE185D" />
+  <ellipse cx="49" cy="54.5" rx="2" ry="2.2" fill="white" />
+  <ellipse cx="77" cy="54.5" rx="2" ry="2.2" fill="white" />
+  <ellipse cx="46" cy="58" rx="1" ry="1" fill="white" opacity="0.7" />
+  <ellipse cx="74" cy="58" rx="1" ry="1" fill="white" opacity="0.7" />
+  <!-- 鼻 -->
+  <path d="M58 66 L60 68 L62 66 Z" fill="#EC4899" stroke="#8B5E3C" stroke-width="0.8" />
+  <!-- 口 -->
+  <path d="M60 68 L60 71" stroke="#8B5E3C" stroke-width="1.2" />
+  <path d="M54 72 Q60 77 66 72" stroke="#8B5E3C" stroke-width="1.5" fill="none" stroke-linecap="round" />
+  <!-- ほっぺ -->
+  <circle cx="36" cy="66" r="7" fill="#F472B6" opacity="0.25" />
+  <circle cx="84" cy="66" r="7" fill="#F472B6" opacity="0.25" />
+  <!-- ひげ -->
+  <path d="M20 60 Q33 58 40 62" stroke="#8B5E3C" stroke-width="1.2" opacity="0.5" stroke-linecap="round" />
+  <path d="M18 67 Q33 66 40 66" stroke="#8B5E3C" stroke-width="1.2" opacity="0.5" stroke-linecap="round" />
+  <path d="M100 60 Q87 58 80 62" stroke="#8B5E3C" stroke-width="1.2" opacity="0.5" stroke-linecap="round" />
+  <path d="M102 67 Q87 66 80 66" stroke="#8B5E3C" stroke-width="1.2" opacity="0.5" stroke-linecap="round" />
+</svg>
