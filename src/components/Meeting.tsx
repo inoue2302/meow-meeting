@@ -106,6 +106,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
       object?.messages &&
       object.messages.length > 0 &&
       readyQueue.length >= object.messages.length &&
+      displayedMessages.length > 0 &&
       displayedMessages.length >= readyQueue.length &&
       phase === "meeting"
     ) {
