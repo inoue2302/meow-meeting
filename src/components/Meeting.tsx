@@ -215,6 +215,13 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
         )}
 
         {isLoading && !streamingMsg?.text && <TypingIndicator />}
+
+        {!isLoading && phase === "streaming" && (
+          <p className="text-center text-sm text-amber-600 py-2 animate-pulse">
+            まとめ中にゃ...
+          </p>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
