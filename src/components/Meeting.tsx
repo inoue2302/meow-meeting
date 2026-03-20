@@ -21,113 +21,69 @@ interface ConfirmedMessage {
   text: string;
 }
 
+type MeetingPhase =
+  | "loading" // LLMストリーミング中
+  | "displaying" // メッセージを1つずつ表示中
+  | "pokapoka" // ポカポカ演出
+  | "conclusion"; // 結論表示
+
 export function Meeting({ hearing, onReset }: MeetingProps) {
   const { object, submit, isLoading } = useObject({
     api: "/api/meeting",
     schema: meetingSchema,
   });
 
-  const [phase, setPhase] = useState<"meeting" | "pokapoka" | "conclusion">(
-    "meeting"
-  );
-  const [submitted, setSubmitted] = useState(false);
-  const [readyQueue, setReadyQueue] = useState<ConfirmedMessage[]>([]);
-  const [displayedMessages, setDisplayedMessages] = useState<ConfirmedMessage[]>([]);
+  const [phase, setPhase] = useState<MeetingPhase>("loading");
+  const [allMessages, setAllMessages] = useState<ConfirmedMessage[]>([]);
+  const [displayedCount, setDisplayedCount] = useState(0);
   const [finalResult, setFinalResult] = useState<MeetingResult | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const readyCountRef = useRef(0);
-  const displayTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const submittedRef = useRef(false);
 
   // 初回マウント時にsubmit
   useEffect(() => {
-    if (!submitted) {
+    if (!submittedRef.current) {
+      submittedRef.current = true;
       submit(hearing);
-      setSubmitted(true);
     }
-  }, [hearing, submit, submitted]);
+  }, [hearing, submit]);
 
-  const messages = object?.messages ?? [];
-  const messagesLen = messages.length;
-
-  // 完成したメッセージをreadyQueueに追加
-  // 「次のメッセージが来た = 前のメッセージは完成」のロジック
+  // ストリーミング完了 → メッセージを確定して表示フェーズへ
   useEffect(() => {
-    // messages配列で、最後の1件以外は完成とみなす
-    const completedCount = isLoading ? Math.max(0, messagesLen - 1) : messagesLen;
-
-    if (completedCount > readyCountRef.current) {
-      const newMessages: ConfirmedMessage[] = [];
-      for (let i = readyCountRef.current; i < completedCount; i++) {
-        const msg = messages[i];
-        if (msg?.cat && msg?.text) {
-          newMessages.push({ cat: msg.cat, text: msg.text });
-        }
-      }
-      if (newMessages.length > 0) {
-        setReadyQueue((prev) => [...prev, ...newMessages]);
-      }
-      readyCountRef.current = completedCount;
-    }
-  }, [messagesLen, isLoading, messages]);
-
-  // readyQueueから1つずつ遅延表示
-  useEffect(() => {
-    if (displayedMessages.length < readyQueue.length) {
-      displayTimerRef.current = setTimeout(() => {
-        setDisplayedMessages((prev) => [...prev, readyQueue[prev.length]]);
-      }, MESSAGE_DISPLAY_DELAY_MS);
-      return () => clearTimeout(displayTimerRef.current);
-    }
-  }, [readyQueue.length, displayedMessages.length, readyQueue]);
-
-  // 表示待ちがあるか、まだストリーミング中
-  const showTypingIndicator =
-    displayedMessages.length < readyQueue.length ||
-    (isLoading && messagesLen <= readyQueue.length + 1);
-
-  // 次に喋る猫（タイピングインジケーターに表示）
-  const nextCat: CatName | null = (() => {
-    const nextIdx = displayedMessages.length;
-    if (nextIdx < readyQueue.length) {
-      return readyQueue[nextIdx].cat as CatName;
-    }
-    // ストリーミング中の最後のメッセージ
-    if (isLoading && messagesLen > 0) {
-      const lastMsg = messages[messagesLen - 1];
-      if (lastMsg?.cat) return lastMsg.cat as CatName;
-    }
-    return null;
-  })();
-
-  // 全メッセージ表示完了 + ストリーミング完了 → ポカポカ演出へ
-  useEffect(() => {
-    if (
-      !isLoading &&
-      object?.messages &&
-      object.messages.length > 0 &&
-      readyQueue.length >= object.messages.length &&
-      displayedMessages.length > 0 &&
-      displayedMessages.length >= readyQueue.length &&
-      phase === "meeting"
-    ) {
-      const completeMessages = (object.messages ?? [])
+    if (!isLoading && object?.messages && object.messages.length > 0 && phase === "loading") {
+      const msgs: ConfirmedMessage[] = (object.messages ?? [])
         .filter((m) => !!m?.cat && !!m?.text)
         .map((m) => ({ cat: m!.cat!, text: m!.text! }));
-      const completeStrategies = (object.strategies ?? []).filter(
+
+      const strategies = (object.strategies ?? []).filter(
         (s): s is string => s !== undefined
       );
+
+      setAllMessages(msgs);
       setFinalResult({
-        messages: completeMessages,
+        messages: msgs,
         conclusion: object.conclusion ?? "",
-        strategies: completeStrategies,
+        strategies,
         finalWord: object.finalWord ?? "",
       } as MeetingResult);
-      const timer = setTimeout(() => {
-        setPhase("pokapoka");
-      }, 1500);
+      setPhase("displaying");
+    }
+  }, [isLoading, object, phase]);
+
+  // メッセージを1つずつ遅延表示
+  useEffect(() => {
+    if (phase !== "displaying") return;
+    if (displayedCount >= allMessages.length) {
+      // 全部表示完了 → ポカポカへ
+      const timer = setTimeout(() => setPhase("pokapoka"), 1500);
       return () => clearTimeout(timer);
     }
-  }, [isLoading, object, phase, displayedMessages.length, readyQueue.length]);
+
+    const timer = setTimeout(() => {
+      setDisplayedCount((prev) => prev + 1);
+    }, MESSAGE_DISPLAY_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [phase, displayedCount, allMessages.length]);
 
   // 自動スクロール
   const scrollToBottom = useCallback(() => {
@@ -138,14 +94,13 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
   useEffect(() => {
     scrollToBottom();
-  }, [displayedMessages.length, showTypingIndicator, scrollToBottom]);
+  }, [displayedCount, phase, scrollToBottom]);
 
-  // クリーンアップ
-  useEffect(() => {
-    return () => {
-      if (displayTimerRef.current) clearTimeout(displayTimerRef.current);
-    };
-  }, []);
+  // 次に喋る猫
+  const nextCat: CatName | null =
+    phase === "displaying" && displayedCount < allMessages.length
+      ? (allMessages[displayedCount].cat as CatName)
+      : null;
 
   if (phase === "pokapoka") {
     return <PokapokaBattle onComplete={() => setPhase("conclusion")} />;
@@ -162,15 +117,20 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     );
   }
 
+  // loading or displaying
+  const showTypingIndicator =
+    phase === "loading" ||
+    (phase === "displaying" && displayedCount < allMessages.length);
+
   return (
     <div className="flex flex-col min-h-screen px-4 py-6 max-w-md mx-auto w-full">
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto pb-4">
-        {displayedMessages.map((msg, i) => (
+        {allMessages.slice(0, displayedCount).map((msg, i) => (
           <MessageBubble key={`msg-${i}`} msg={msg} index={i} />
         ))}
 
         {showTypingIndicator && (() => {
-          const nextIndex = displayedMessages.length;
+          const nextIndex = displayedCount;
           const isLeft = nextIndex % 2 === 0;
           return (
             <div className={`flex animate-fade-in items-center ${isLeft ? "justify-start" : "justify-end"}`}>
