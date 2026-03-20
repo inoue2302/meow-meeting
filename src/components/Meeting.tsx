@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { experimental_useObject as useObject } from "@ai-sdk/react";
+import { readStreamableValue } from "@ai-sdk/rsc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CatIcon } from "@/components/CatIcon";
 import { RateLimitedScreen } from "@/components/RateLimitedScreen";
-import { meetingSchema, MeetingResult } from "@/lib/schema";
+import { MeetingResult } from "@/lib/schema";
 import { HearingResult, CatName, isCatName } from "@/lib/types";
 import { PokapokaBattle } from "@/components/PokapokaBattle";
 import { Conclusion } from "@/components/Conclusion";
-
-const EMPTY_MESSAGES: never[] = [];
+import { generateMeeting } from "@/app/actions";
 
 interface MeetingProps {
   hearing: HearingResult;
@@ -23,86 +22,122 @@ interface ConfirmedMessage {
   text: string;
 }
 
-type MeetingPhase = "streaming" | "done" | "pokapoka" | "conclusion";
+type MeetingPhase = "streaming" | "done" | "pokapoka" | "conclusion" | "error" | "rate-limited";
+
+// MeetingResultからDeepPartialを導出
+type PartialMeetingObject = {
+  [K in keyof MeetingResult]?: MeetingResult[K] extends Array<infer U>
+    ? Array<U extends object ? { [P in keyof U]?: U[P] } : U | undefined>
+    : MeetingResult[K];
+};
 
 export function Meeting({ hearing, onReset }: MeetingProps) {
-  const { object, submit, isLoading, error } = useObject({
-    api: "/api/meeting",
-    schema: meetingSchema,
-  });
-
   const [phase, setPhase] = useState<MeetingPhase>("streaming");
   const [confirmedMessages, setConfirmedMessages] = useState<ConfirmedMessage[]>([]);
+  const [streamingMsg, setStreamingMsg] = useState<{ cat: string; text: string } | null>(null);
   const [finalResult, setFinalResult] = useState<MeetingResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const submittedRef = useRef(false);
-  const confirmedCountRef = useRef(0);
 
-  // 初回マウント時にsubmit
+  // Server Action でストリーミング開始
   useEffect(() => {
-    if (!submittedRef.current) {
-      submittedRef.current = true;
-      submit(hearing);
-    }
-  }, [hearing, submit]);
+    if (submittedRef.current) return;
+    submittedRef.current = true;
 
-  const messages = object?.messages ?? EMPTY_MESSAGES;
-  const messagesLen = messages.length;
+    let confirmedUpTo = 0;
 
-  // 完成したメッセージを確定（次のメッセージが来た = 前のは完成）
-  useEffect(() => {
-    const completedCount = isLoading
-      ? Math.max(0, messagesLen - 1)
-      : messagesLen;
+    (async () => {
+      try {
+        const { object } = await generateMeeting(hearing);
 
-    if (completedCount > confirmedCountRef.current) {
-      const newConfirmed: ConfirmedMessage[] = messages
-        .slice(confirmedCountRef.current, completedCount)
-        .flatMap((msg) => {
-          if (msg?.cat && msg?.text && isCatName(msg.cat)) {
-            return [{ cat: msg.cat, text: msg.text }];
+        let lastObject: PartialMeetingObject | null = null;
+
+        for await (const partialObject of readStreamableValue(object)) {
+          if (!partialObject) continue;
+          lastObject = partialObject as PartialMeetingObject;
+          const messages = lastObject.messages ?? [];
+
+          // 最後の1件以外は完成 → 確定
+          const newCompleteUpTo = Math.max(0, messages.length - 1);
+
+          if (newCompleteUpTo > confirmedUpTo) {
+            const newConfirmed: ConfirmedMessage[] = messages
+              .slice(confirmedUpTo, newCompleteUpTo)
+              .flatMap((msg) => {
+                if (msg?.cat && msg?.text && isCatName(msg.cat)) {
+                  return [{ cat: msg.cat, text: msg.text }];
+                }
+                return [];
+              });
+
+            if (newConfirmed.length > 0) {
+              setConfirmedMessages((prev) => [...prev, ...newConfirmed]);
+            }
+            confirmedUpTo = newCompleteUpTo;
           }
-          return [];
-        });
 
-      if (newConfirmed.length > 0) {
-        setConfirmedMessages((prev) => [...prev, ...newConfirmed]);
-        confirmedCountRef.current += newConfirmed.length;
+          // ストリーミング中の最後のメッセージ
+          const lastMsg = messages[messages.length - 1];
+          if (lastMsg?.cat && lastMsg?.text) {
+            setStreamingMsg({ cat: lastMsg.cat, text: lastMsg.text });
+          } else {
+            setStreamingMsg(null);
+          }
+        }
+
+        // ストリーム完了 → 最後のメッセージも確定
+        if (lastObject?.messages) {
+          const allMessages: ConfirmedMessage[] = lastObject.messages
+            .flatMap((msg) => {
+              if (msg?.cat && msg?.text && isCatName(msg.cat)) {
+                return [{ cat: msg.cat, text: msg.text }];
+              }
+              return [];
+            });
+
+          setConfirmedMessages(allMessages);
+          setStreamingMsg(null);
+
+          const strategies = (lastObject.strategies ?? []).filter(
+            (s): s is string => s !== undefined
+          );
+
+          if (lastObject.conclusion) {
+            const result: MeetingResult = {
+              messages: allMessages,
+              conclusion: lastObject.conclusion,
+              strategies: [
+                strategies[0] ?? "",
+                strategies[1] ?? "",
+                strategies[2] ?? "",
+              ],
+              finalWord: lastObject.finalWord ?? "",
+            };
+            setFinalResult(result);
+            setPhase("done");
+          } else {
+            // conclusionが無い → エラー
+            setPhase("error");
+          }
+        } else {
+          // messagesが無い → エラー
+          setPhase("error");
+        }
+
+        setIsLoading(false);
+      } catch (e) {
+        setIsLoading(false);
+        const msg = e instanceof Error ? e.message : "";
+        if (msg.includes("RATE_LIMITED")) {
+          setPhase("rate-limited");
+        } else {
+          setPhase("error");
+        }
       }
-    }
-  }, [messagesLen, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ストリーミング中の最後のメッセージ
-  const streamingMsg =
-    isLoading && messagesLen > confirmedCountRef.current
-      ? messages[messagesLen - 1]
-      : null;
-
-  // ストリーミング完了 → done へ
-  useEffect(() => {
-    if (
-      !isLoading &&
-      phase === "streaming" &&
-      submittedRef.current &&
-      object?.conclusion
-    ) {
-      const strategies = (object?.strategies ?? []).filter(
-        (s): s is string => s !== undefined
-      );
-      const result: MeetingResult = {
-        messages: confirmedMessages,
-        conclusion: object?.conclusion ?? "",
-        strategies: [
-          strategies[0] ?? "",
-          strategies[1] ?? "",
-          strategies[2] ?? "",
-        ],
-        finalWord: object?.finalWord ?? "",
-      };
-      setFinalResult(result);
-      setPhase("done");
-    }
-  }, [isLoading, phase, confirmedMessages, object]);
+    })();
+  }, [hearing, retryCount]);
 
   // 自動スクロール（メッセージ確定時のみ）
   const scrollToBottom = useCallback(() => {
@@ -118,7 +153,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     scrollToBottom();
   }, [confirmedMessages.length, scrollToBottom]);
 
-  // ストリーミング中のスクロール追従（instant でガタつき防止）
+  // ストリーミング中のスクロール追従
   useEffect(() => {
     if (streamingMsg?.text && scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -126,31 +161,25 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
         behavior: "instant",
       });
     }
-  }); // 毎レンダーで実行（RAF相当）
+  });
 
   const handlePokapokaComplete = useCallback(() => setPhase("conclusion"), []);
 
   const handleRetry = useCallback(() => {
     submittedRef.current = false;
-    confirmedCountRef.current = 0;
     setPhase("streaming");
     setConfirmedMessages([]);
+    setStreamingMsg(null);
     setFinalResult(null);
-    submit(hearing);
-  }, [hearing, submit]);
+    setIsLoading(true);
+    setRetryCount((prev) => prev + 1);
+  }, []);
 
-  // レート制限エラー
-  const errorStr = String(error?.message ?? error ?? "");
-  const isRateLimited =
-    errorStr.includes("429") ||
-    errorStr.includes("Too Many") ||
-    errorStr.includes("相談しすぎ");
-  if (isRateLimited) {
+  if (phase === "rate-limited") {
     return <RateLimitedScreen onReset={onReset} />;
   }
 
-  // その他のエラー
-  if (error) {
+  if (phase === "error") {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
         <p className="text-red-600 text-lg">会議の準備に失敗したにゃ...</p>
@@ -182,13 +211,11 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
   return (
     <div className="flex flex-col min-h-screen px-4 py-6 max-w-md mx-auto w-full">
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto pb-4">
-        {/* 確定済みメッセージ */}
         {confirmedMessages.map((msg, i) => (
           <ChatBubble key={`msg-${i}`} msg={msg} index={i} />
         ))}
 
-        {/* ストリーミング中のメッセージ（リアルタイム表示） */}
-        {streamingMsg?.cat && streamingMsg?.text && isCatName(streamingMsg.cat) && (
+        {streamingMsg && isCatName(streamingMsg.cat) && (
           <ChatBubble
             msg={{ cat: streamingMsg.cat, text: streamingMsg.text }}
             index={confirmedMessages.length}
@@ -196,7 +223,6 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
           />
         )}
 
-        {/* タイピングインジケーター（まだテキストが来ていない時） */}
         {isLoading && !streamingMsg?.text && (
           <div className="flex justify-start animate-fade-in items-center">
             <Card className="bg-white border-amber-200">
@@ -212,7 +238,6 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
         )}
       </div>
 
-      {/* 会議完了 → 結果を見るボタン */}
       {phase === "done" && (
         <div className="pt-4 border-t border-amber-200 animate-fade-in">
           <Button
@@ -258,7 +283,7 @@ function ChatBubble({
       >
         <CardContent className="px-4 py-3">
           <p className="text-xs font-bold text-amber-600 mb-1">{msg.cat}</p>
-          <p className={`text-sm ${isStreaming ? "min-h-[1.25rem]" : ""}`}>
+          <p className={`text-sm ${isStreaming ? "min-h-5" : ""}`}>
             {msg.text}
           </p>
         </CardContent>
