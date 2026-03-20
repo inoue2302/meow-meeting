@@ -29,12 +29,12 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     "meeting"
   );
   const [submitted, setSubmitted] = useState(false);
-  // 確定済みメッセージ（再描画を防ぐ）
   const [confirmedMessages, setConfirmedMessages] = useState<
     ConfirmedMessage[]
   >([]);
   const [finalResult, setFinalResult] = useState<MeetingResult | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLenRef = useRef(0);
 
   // 初回マウント時にsubmit
   useEffect(() => {
@@ -46,37 +46,56 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
   const messages = object?.messages ?? [];
 
-  // 新しい完全なメッセージを確定済みに追加
+  // メッセージが確定したら追加（次のメッセージが来た = 前のメッセージは完成）
   useEffect(() => {
-    const newConfirmed: ConfirmedMessage[] = [];
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
-      if (msg?.cat && msg?.text && i >= confirmedMessages.length) {
-        // 最後のメッセージ以外は確定（最後はまだストリーミング中の可能性）
-        if (i < messages.length - 1 || !isLoading) {
-          newConfirmed.push({ cat: msg.cat, text: msg.text });
+    // 新しいメッセージが生えた → 前のメッセージは完成
+    if (messages.length > prevMessagesLenRef.current) {
+      // 前のメッセージ群（最後以外）で未確定のものを確定
+      for (let i = confirmedMessages.length; i < messages.length - 1; i++) {
+        const msg = messages[i];
+        if (msg?.cat && msg?.text) {
+          setConfirmedMessages((prev) => [
+            ...prev,
+            { cat: msg.cat!, text: msg.text! },
+          ]);
         }
       }
+      prevMessagesLenRef.current = messages.length;
     }
-    if (newConfirmed.length > 0) {
-      setConfirmedMessages((prev) => [...prev, ...newConfirmed]);
-    }
-  }, [messages.length, isLoading, confirmedMessages.length, messages]);
 
-  // 現在ストリーミング中のメッセージ（最後の1件）
-  const streamingMessage =
-    isLoading && messages.length > confirmedMessages.length
-      ? messages[messages.length - 1]
-      : null;
+    // ストリーミング完了 → 最後のメッセージも確定
+    if (!isLoading && messages.length > 0) {
+      const remaining: ConfirmedMessage[] = [];
+      for (let i = confirmedMessages.length; i < messages.length; i++) {
+        const msg = messages[i];
+        if (msg?.cat && msg?.text) {
+          remaining.push({ cat: msg.cat, text: msg.text });
+        }
+      }
+      if (remaining.length > 0) {
+        setConfirmedMessages((prev) => [...prev, ...remaining]);
+      }
+    }
+  }, [messages, messages.length, isLoading, confirmedMessages.length]);
+
+  // ストリーミング中かどうか（最後のメッセージがまだ生成中）
+  const isStreamingMessage =
+    isLoading && messages.length > confirmedMessages.length;
 
   // 会議完了 → 結果を保存してポカポカ演出へ
   useEffect(() => {
-    if (!isLoading && object?.messages && object.messages.length > 0 && phase === "meeting") {
+    if (
+      !isLoading &&
+      object?.messages &&
+      object.messages.length > 0 &&
+      phase === "meeting"
+    ) {
       const completeMessages = (object.messages ?? [])
         .filter((m) => !!m?.cat && !!m?.text)
         .map((m) => ({ cat: m!.cat!, text: m!.text! }));
-      const completeStrategies = (object.strategies ?? [])
-        .filter((s): s is string => s !== undefined);
+      const completeStrategies = (object.strategies ?? []).filter(
+        (s): s is string => s !== undefined
+      );
       setFinalResult({
         messages: completeMessages,
         conclusion: object.conclusion ?? "",
@@ -99,7 +118,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
   useEffect(() => {
     scrollToBottom();
-  }, [confirmedMessages.length, streamingMessage, isLoading, scrollToBottom]);
+  }, [confirmedMessages.length, isStreamingMessage, scrollToBottom]);
 
   if (phase === "pokapoka") {
     return <PokapokaBattle onComplete={() => setPhase("conclusion")} />;
@@ -119,26 +138,13 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
   return (
     <div className="flex flex-col min-h-screen px-4 py-6 max-w-md mx-auto w-full">
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto pb-4">
-        {/* 確定済みメッセージ（再描画しない） */}
+        {/* 確定済みメッセージのみ表示（ストリーミング中のテキストは非表示） */}
         {confirmedMessages.map((msg, i) => (
-          <MessageBubble key={`confirmed-${i}`} msg={msg} index={i} />
+          <MessageBubble key={`msg-${i}`} msg={msg} index={i} />
         ))}
 
-        {/* ストリーミング中のメッセージ */}
-        {streamingMessage?.cat && streamingMessage?.text && (
-          <MessageBubble
-            key={`streaming-${confirmedMessages.length}`}
-            msg={{
-              cat: streamingMessage.cat,
-              text: streamingMessage.text,
-            }}
-            index={confirmedMessages.length}
-            isStreaming
-          />
-        )}
-
-        {/* タイピングインジケーター */}
-        {isLoading && !streamingMessage?.text && (
+        {/* ストリーミング中はタイピングインジケーターのみ */}
+        {(isStreamingMessage || (isLoading && messages.length === 0)) && (
           <div className="flex justify-start animate-fade-in">
             <Card className="bg-white border-amber-200">
               <CardContent className="px-4 py-3">
@@ -159,16 +165,14 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 function MessageBubble({
   msg,
   index,
-  isStreaming,
 }: {
   msg: { cat: string; text: string };
   index: number;
-  isStreaming?: boolean;
 }) {
   const isLeft = index % 2 === 0;
   return (
     <div
-      className={`flex ${!isStreaming ? "animate-fade-in" : ""} ${isLeft ? "justify-start" : "justify-end"}`}
+      className={`flex animate-fade-in ${isLeft ? "justify-start" : "justify-end"}`}
     >
       {isLeft && (
         <CatIcon
