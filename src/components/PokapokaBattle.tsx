@@ -23,14 +23,18 @@ const impactMarks = [
   { x: 30, y: 50 },
 ];
 
+const SMOKE_DURATION_MS = 2500;
+const SETTLE_DELAY_MS = 2800;
+const COMPLETE_DELAY_MS = 4500;
+
 export function PokapokaBattle({ onComplete }: PokapokaBattleProps) {
   const [showSettle, setShowSettle] = useState(false);
   const [showSmoke, setShowSmoke] = useState(true);
 
   useEffect(() => {
-    const smokeTimer = setTimeout(() => setShowSmoke(false), 2500);
-    const settleTimer = setTimeout(() => setShowSettle(true), 2800);
-    const completeTimer = setTimeout(() => onComplete(), 4500);
+    const smokeTimer = setTimeout(() => setShowSmoke(false), SMOKE_DURATION_MS);
+    const settleTimer = setTimeout(() => setShowSettle(true), SETTLE_DELAY_MS);
+    const completeTimer = setTimeout(() => onComplete(), COMPLETE_DELAY_MS);
     return () => {
       clearTimeout(smokeTimer);
       clearTimeout(settleTimer);
