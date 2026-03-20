@@ -127,6 +127,14 @@
   html {
     @apply font-sans;
   }
+  a, button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:active, a:active {
+    transform: scale(0.97);
+    transition: transform 0.05s;
+  }
 }
 
 @keyframes fade-in {

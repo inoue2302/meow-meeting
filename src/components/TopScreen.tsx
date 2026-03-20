@@ -1,15 +1,21 @@
 "use client";
 
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { CatIcon } from "@/components/CatIcon";
 
 interface TopScreenProps {
-  onStart: () => void;
+  onStart: () => void | Promise<void>;
 }
 
 export function TopScreen({ onStart }: TopScreenProps) {
+  const [isStarting, setIsStarting] = useState(false);
+
+  const handleClick = async () => {
+    setIsStarting(true);
+    await onStart();
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
       <Card className="max-w-md w-full text-center shadow-lg border-amber-200 bg-white/80">
@@ -49,19 +55,19 @@ export function TopScreen({ onStart }: TopScreenProps) {
             <span className="font-bold">猫に聞こう。</span>
           </p>
 
-          <Button
-            onClick={onStart}
-            size="lg"
-            className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 rounded-xl cursor-pointer"
+          <button
+            onClick={handleClick}
+            disabled={isStarting}
+            className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-lg py-5 rounded-xl cursor-pointer font-medium disabled:opacity-70"
           >
-            相談するにゃ 🐾
-          </Button>
+            {isStarting ? "準備中にゃ..." : "相談するにゃ 🐾"}
+          </button>
 
-          <Link href="/profile">
+          <a href="/profile">
             <p className="text-sm text-amber-600 hover:text-amber-800 underline cursor-pointer">
               にゃんずメンバー紹介
             </p>
-          </Link>
+          </a>
 
           <p className="text-xs text-muted-foreground leading-relaxed">
             ※ エンタメ目的のアプリです。実際のキャリアアドバイスではありません。

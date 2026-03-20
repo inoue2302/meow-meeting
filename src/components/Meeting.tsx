@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { readStreamableValue } from "@ai-sdk/rsc";
-import { Button } from "@/components/ui/button";
 import { ChatBubble } from "@/components/ChatBubble";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { RateLimitedScreen } from "@/components/RateLimitedScreen";
@@ -82,6 +81,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
               ? { cat: lastMsg.cat, text: lastMsg.text }
               : null
           );
+
         }
 
         // ストリーム完了
@@ -104,13 +104,12 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
       setConfirmedMessages(allMessages);
 
       const result = buildFinalResult(lastObject, allMessages);
-      if (!result) {
+      if (result) {
+        setFinalResult(result);
+        setPhase("done");
+      } else {
         setPhase("error");
-        return;
       }
-
-      setFinalResult(result);
-      setPhase("done");
     }
 
     function isRateLimitError(e: unknown): boolean {
@@ -169,12 +168,12 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
         <p className="text-red-600 text-lg">会議の準備に失敗したにゃ...</p>
-        <Button
+        <button
           onClick={handleRetry}
-          className="bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+          className="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-6 py-3 rounded-xl cursor-pointer font-medium"
         >
           もう一度試すにゃ
-        </Button>
+        </button>
       </div>
     );
   }
@@ -216,18 +215,24 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
         )}
 
         {isLoading && !streamingMsg?.text && <TypingIndicator />}
+
+        {!isLoading && phase === "streaming" && (
+          <p className="text-center text-sm text-amber-600 py-2 animate-pulse">
+            まとめ中にゃ...
+          </p>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
       {phase === "done" && (
         <div className="pt-4 border-t border-amber-200 animate-fade-in">
-          <Button
+          <button
             onClick={() => setPhase("pokapoka")}
-            size="lg"
-            className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 rounded-xl cursor-pointer"
+            className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-lg py-5 rounded-xl cursor-pointer font-medium"
           >
             結果を見るにゃ 🐾
-          </Button>
+          </button>
         </div>
       )}
     </div>

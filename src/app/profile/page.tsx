@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CatIcon } from "@/components/CatIcon";
 import { cats } from "@/lib/data/cats";
@@ -69,16 +67,13 @@ export default function ProfilePage() {
         );
       })}
 
-      <div className="text-center pt-2">
-        <Link href="/">
-          <Button
-            variant="outline"
-            className="border-amber-300 hover:bg-amber-100 cursor-pointer"
-          >
-            トップに戻るにゃ
-          </Button>
-        </Link>
-      </div>
+      <a
+        href="/"
+        className="block mt-2 w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-lg py-5 rounded-xl text-center font-medium touch-action-manipulation"
+        style={{ touchAction: "manipulation" }}
+      >
+        トップに戻るにゃ 🐾
+      </a>
     </div>
   );
 }

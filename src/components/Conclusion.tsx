@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CatIcon } from "@/components/CatIcon";
 
@@ -63,13 +62,12 @@ export function Conclusion({
       </Card>
 
       {/* もう一度 */}
-      <Button
+      <button
         onClick={onReset}
-        size="lg"
-        className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 rounded-xl cursor-pointer"
+        className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-lg py-5 rounded-xl cursor-pointer font-medium"
       >
         もう一度相談するにゃ 🐾
-      </Button>
+      </button>
     </div>
   );
 }

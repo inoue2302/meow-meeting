@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CatIcon } from "@/components/CatIcon";
 import { TypingIndicator } from "@/components/TypingIndicator";
@@ -174,14 +173,13 @@ export function Hearing({ onComplete }: HearingProps) {
       {showOptions && !isCompletingHearing && currentOptions.length > 0 && (
         <div className="space-y-2 pt-4 border-t border-amber-200 animate-fade-in">
           {currentOptions.map((option) => (
-            <Button
+            <button
               key={option}
-              variant="outline"
               onClick={() => handleSelect(option)}
-              className="w-full text-left justify-start py-3 h-auto text-sm border-amber-300 hover:bg-amber-100 cursor-pointer whitespace-normal"
+              className="w-full text-left py-3 px-4 text-sm border border-amber-300 hover:bg-amber-100 active:bg-amber-200 rounded-lg cursor-pointer whitespace-normal bg-white"
             >
               {option}
-            </Button>
+            </button>
           ))}
         </div>
       )}
