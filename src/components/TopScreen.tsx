@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CatIcon } from "@/components/CatIcon";
 
@@ -57,20 +55,19 @@ export function TopScreen({ onStart }: TopScreenProps) {
             <span className="font-bold">猫に聞こう。</span>
           </p>
 
-          <Button
+          <button
             onClick={handleClick}
             disabled={isStarting}
-            size="lg"
-            className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 rounded-xl cursor-pointer disabled:opacity-70"
+            className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-lg py-5 rounded-xl cursor-pointer font-medium disabled:opacity-70"
           >
             {isStarting ? "準備中にゃ..." : "相談するにゃ 🐾"}
-          </Button>
+          </button>
 
-          <Link href="/profile">
+          <a href="/profile">
             <p className="text-sm text-amber-600 hover:text-amber-800 underline cursor-pointer">
               にゃんずメンバー紹介
             </p>
-          </Link>
+          </a>
 
           <p className="text-xs text-muted-foreground leading-relaxed">
             ※ エンタメ目的のアプリです。実際のキャリアアドバイスではありません。

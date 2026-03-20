@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
 
 interface RateLimitedScreenProps {
   onReset: () => void;
@@ -26,13 +25,12 @@ export function RateLimitedScreen({ onReset }: RateLimitedScreenProps) {
           明日また来てほしいにゃ。
         </p>
       </div>
-      <Button
+      <button
         onClick={onReset}
-        variant="outline"
-        className="border-amber-300 hover:bg-amber-100 cursor-pointer"
+        className="border border-amber-300 hover:bg-amber-100 active:bg-amber-200 px-6 py-3 rounded-xl cursor-pointer font-medium text-amber-800"
       >
         トップに戻るにゃ
-      </Button>
+      </button>
     </div>
   );
 }
