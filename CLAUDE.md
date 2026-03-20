@@ -9,6 +9,7 @@ AI時代のキャリア不安を猫4匹の作戦会議で癒すアプリ。
 - Next.js 15 (App Router)
 - TypeScript
 - Tailwind CSS v4
+- shadcn/ui
 - Vercel AI SDK (`streamObject` + Zod)
 - Anthropic API (Claude)
 
@@ -27,6 +28,7 @@ src/
     prompt.ts         # システムプロンプト構築
     types.ts          # TypeScript型定義
   components/
+    ui/               # shadcn/ui コンポーネント
     TopScreen.tsx     # トップ画面
     Hearing.tsx       # ヒアリング（トラとの会話）
     Meeting.tsx       # 会議画面（吹き出しストリーミング）
