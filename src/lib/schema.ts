@@ -9,7 +9,7 @@ export const meetingSchema = z.object({
     })
   ),
   conclusion: z.string(),
-  strategies: z.array(z.string()).length(3),
+  strategies: z.array(z.string()),
   finalWord: z.string(),
 });
 
