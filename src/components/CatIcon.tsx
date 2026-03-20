@@ -17,10 +17,13 @@ const catImagePaths: Record<CatName, string> = {
 };
 
 export function CatIcon({ name, size = 48, className }: CatIconProps) {
+  const src = catImagePaths[name];
+  if (!src) return null;
+
   return (
     <div className={`flex items-center justify-center ${className ?? ""}`}>
       <Image
-        src={catImagePaths[name]}
+        src={src}
         alt={`${name}のアイコン`}
         width={size}
         height={size}
