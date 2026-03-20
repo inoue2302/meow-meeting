@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CatIcon } from "@/components/CatIcon";
@@ -55,6 +56,12 @@ export function TopScreen({ onStart }: TopScreenProps) {
           >
             相談するにゃ 🐾
           </Button>
+
+          <Link href="/profile">
+            <p className="text-sm text-amber-600 hover:text-amber-800 underline cursor-pointer">
+              にゃんずメンバー紹介
+            </p>
+          </Link>
 
           <p className="text-xs text-muted-foreground leading-relaxed">
             ※ エンタメ目的のアプリです。実際のキャリアアドバイスではありません。
