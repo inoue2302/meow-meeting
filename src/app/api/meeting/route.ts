@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as HearingResult;
 
   const result = streamText({
-    model: anthropic("claude-haiku-4-5-20251001"),
+    model: anthropic("claude-sonnet-4-20250514"),
     output: Output.object({ schema: meetingSchema }),
     prompt: buildPrompt(body),
     temperature: 1,
