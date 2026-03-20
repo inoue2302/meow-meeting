@@ -1,7 +1,6 @@
 import { streamText, Output } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
-import { headers } from "next/headers";
 import { meetingSchema } from "@/lib/schema";
 import { buildPrompt } from "@/lib/prompt";
 import { themes } from "@/lib/data/themes";
@@ -15,11 +14,8 @@ const hearingResultSchema = z.object({
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
-  // レート制限
-  const headersList = await headers();
-  const ip =
-    headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const { allowed, remaining } = checkRateLimit(ip);
+  // レート制限（全体で24時間100回）
+  const { allowed, remaining } = await checkRateLimit();
   if (!allowed) {
     return new Response(
       JSON.stringify({ error: "今日はもう相談しすぎにゃ...明日また来てにゃ" }),
