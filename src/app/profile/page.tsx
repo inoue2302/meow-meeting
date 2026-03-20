@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CatIcon } from "@/components/CatIcon";
 import { cats } from "@/lib/data/cats";
@@ -68,13 +67,11 @@ export default function ProfilePage() {
         );
       })}
 
-      <a href="/" className="block pt-2">
-        <Button
-          size="lg"
-          className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 rounded-xl cursor-pointer"
-        >
-          トップに戻るにゃ 🐾
-        </Button>
+      <a
+        href="/"
+        className="block pt-2 w-full bg-green-600 hover:bg-green-700 text-white text-lg py-4 rounded-xl text-center font-medium"
+      >
+        トップに戻るにゃ 🐾
       </a>
     </div>
   );
