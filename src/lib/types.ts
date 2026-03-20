@@ -7,6 +7,7 @@ export interface Cat {
   color: string;
   bgColor: string;
   description: string;
+  quotes: string[];
 }
 
 export interface Question {
