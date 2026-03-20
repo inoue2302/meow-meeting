@@ -10,7 +10,6 @@ import { HearingResult, CatName } from "@/lib/types";
 import { PokapokaBattle } from "@/components/PokapokaBattle";
 import { Conclusion } from "@/components/Conclusion";
 
-const MESSAGE_DISPLAY_DELAY_MS = 1200;
 const POKAPOKA_TRANSITION_DELAY_MS = 1500;
 
 interface MeetingProps {
@@ -23,11 +22,7 @@ interface ConfirmedMessage {
   text: string;
 }
 
-type MeetingPhase =
-  | "loading"
-  | "displaying"
-  | "pokapoka"
-  | "conclusion";
+type MeetingPhase = "streaming" | "pokapoka" | "conclusion";
 
 export function Meeting({ hearing, onReset }: MeetingProps) {
   const { object, submit, isLoading, error } = useObject({
@@ -35,12 +30,12 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     schema: meetingSchema,
   });
 
-  const [phase, setPhase] = useState<MeetingPhase>("loading");
-  const [allMessages, setAllMessages] = useState<ConfirmedMessage[]>([]);
-  const [displayedCount, setDisplayedCount] = useState(0);
+  const [phase, setPhase] = useState<MeetingPhase>("streaming");
+  const [confirmedMessages, setConfirmedMessages] = useState<ConfirmedMessage[]>([]);
   const [finalResult, setFinalResult] = useState<MeetingResult | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const submittedRef = useRef(false);
+  const confirmedCountRef = useRef(0);
 
   // 初回マウント時にsubmit
   useEffect(() => {
@@ -50,72 +45,81 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     }
   }, [hearing, submit]);
 
-  // ストリーミング完了 → メッセージを確定して表示フェーズへ
+  const messages = object?.messages ?? [];
+
+  // 完成したメッセージを確定（次のメッセージが来た = 前のは完成）
   useEffect(() => {
-    if (!isLoading && phase === "loading") {
-      if (object?.messages && object.messages.length > 0) {
-        const msgs: ConfirmedMessage[] = (object.messages ?? [])
-          .filter((m) => !!m?.cat && !!m?.text)
-          .map((m) => ({ cat: m!.cat! as CatName, text: m!.text! }));
+    const completedCount = isLoading
+      ? Math.max(0, messages.length - 1)
+      : messages.length;
 
-        const strategies = (object.strategies ?? []).filter(
-          (s): s is string => s !== undefined
-        );
-
-        setAllMessages(msgs);
-        setFinalResult({
-          messages: msgs,
-          conclusion: object.conclusion ?? "",
-          strategies,
-          finalWord: object.finalWord ?? "",
-        } as MeetingResult);
-        setPhase("displaying");
-      } else if (!error) {
-        // messagesが空でエラーもない → フォールバック
-        setPhase("displaying");
+    if (completedCount > confirmedCountRef.current) {
+      const newConfirmed: ConfirmedMessage[] = [];
+      for (let i = confirmedCountRef.current; i < completedCount; i++) {
+        const msg = messages[i];
+        if (msg?.cat && msg?.text) {
+          newConfirmed.push({ cat: msg.cat as CatName, text: msg.text });
+        }
       }
+      if (newConfirmed.length > 0) {
+        setConfirmedMessages((prev) => [...prev, ...newConfirmed]);
+      }
+      confirmedCountRef.current = completedCount;
     }
-  }, [isLoading, object, phase, error]);
+  }, [messages.length, isLoading, messages]);
 
-  // メッセージを1つずつ遅延表示
+  // ストリーミング中の最後のメッセージ
+  const streamingMsg =
+    isLoading && messages.length > confirmedCountRef.current
+      ? messages[messages.length - 1]
+      : null;
+
+  // ストリーミング完了 → ポカポカへ
   useEffect(() => {
-    if (phase !== "displaying") return;
-    if (displayedCount >= allMessages.length) {
-      if (allMessages.length === 0) return;
-      const timer = setTimeout(() => setPhase("pokapoka"), POKAPOKA_TRANSITION_DELAY_MS);
+    if (
+      !isLoading &&
+      confirmedMessages.length > 0 &&
+      phase === "streaming"
+    ) {
+      const strategies = (object?.strategies ?? []).filter(
+        (s): s is string => s !== undefined
+      );
+      setFinalResult({
+        messages: confirmedMessages,
+        conclusion: object?.conclusion ?? "",
+        strategies,
+        finalWord: object?.finalWord ?? "",
+      } as MeetingResult);
+
+      const timer = setTimeout(
+        () => setPhase("pokapoka"),
+        POKAPOKA_TRANSITION_DELAY_MS
+      );
       return () => clearTimeout(timer);
     }
+  }, [isLoading, confirmedMessages.length, phase, object]);
 
-    const timer = setTimeout(() => {
-      setDisplayedCount((prev) => prev + 1);
-    }, MESSAGE_DISPLAY_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [phase, displayedCount, allMessages.length]);
-
-  // 自動スクロール
+  // 自動スクロール（smooth）
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
     }
   }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [displayedCount, phase, scrollToBottom]);
-
-  // 次に喋る猫
-  const nextCat: CatName | null =
-    phase === "displaying" && displayedCount < allMessages.length
-      ? allMessages[displayedCount].cat
-      : null;
+  }, [confirmedMessages.length, streamingMsg?.text, scrollToBottom]);
 
   const handlePokapokaComplete = useCallback(() => setPhase("conclusion"), []);
 
   const handleRetry = useCallback(() => {
     submittedRef.current = false;
-    setPhase("loading");
-    setAllMessages([]);
-    setDisplayedCount(0);
+    confirmedCountRef.current = 0;
+    setPhase("streaming");
+    setConfirmedMessages([]);
     setFinalResult(null);
     submit(hearing);
   }, [hearing, submit]);
@@ -150,41 +154,37 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     );
   }
 
-  // loading or displaying
-  const showTypingIndicator =
-    phase === "loading" ||
-    (phase === "displaying" && displayedCount < allMessages.length);
-
   return (
     <div className="flex flex-col min-h-screen px-4 py-6 max-w-md mx-auto w-full">
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto pb-4">
-        {allMessages.slice(0, displayedCount).map((msg, i) => (
+        {/* 確定済みメッセージ */}
+        {confirmedMessages.map((msg, i) => (
           <MessageBubble key={`msg-${i}`} msg={msg} index={i} />
         ))}
 
-        {showTypingIndicator && (() => {
-          const nextIndex = displayedCount;
-          const isLeft = nextIndex % 2 === 0;
-          return (
-            <div className={`flex animate-fade-in items-center ${isLeft ? "justify-start" : "justify-end"}`}>
-              {isLeft && nextCat && (
-                <CatIcon name={nextCat} size={56} className="mr-1 shrink-0" />
-              )}
-              <Card className="bg-white border-amber-200">
-                <CardContent className="px-4 py-3">
-                  <div className="flex gap-1.5 items-center h-5">
-                    <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                    <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                    <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:300ms]" />
-                  </div>
-                </CardContent>
-              </Card>
-              {!isLeft && nextCat && (
-                <CatIcon name={nextCat} size={56} className="ml-1 shrink-0" />
-              )}
-            </div>
-          );
-        })()}
+        {/* ストリーミング中のメッセージ（リアルタイム表示） */}
+        {streamingMsg?.cat && streamingMsg?.text && (
+          <StreamingBubble
+            cat={streamingMsg.cat as CatName}
+            text={streamingMsg.text}
+            index={confirmedMessages.length}
+          />
+        )}
+
+        {/* タイピングインジケーター（まだテキストが来ていない時） */}
+        {isLoading && (!streamingMsg?.text) && (
+          <div className="flex justify-start animate-fade-in items-center">
+            <Card className="bg-white border-amber-200">
+              <CardContent className="px-4 py-3">
+                <div className="flex gap-1.5 items-center h-5">
+                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -224,6 +224,50 @@ function MessageBubble({
       {!isLeft && (
         <CatIcon
           name={msg.cat}
+          size={56}
+          className="ml-1 shrink-0 self-center"
+        />
+      )}
+    </div>
+  );
+}
+
+function StreamingBubble({
+  cat,
+  text,
+  index,
+}: {
+  cat: CatName;
+  text: string;
+  index: number;
+}) {
+  const isLeft = index % 2 === 0;
+  return (
+    <div
+      className={`flex ${isLeft ? "justify-start" : "justify-end"}`}
+    >
+      {isLeft && (
+        <CatIcon
+          name={cat}
+          size={56}
+          className="mr-1 shrink-0 self-center"
+        />
+      )}
+      <Card
+        className={`max-w-[75%] transition-all duration-200 ease-out ${
+          isLeft
+            ? "bg-white border-amber-200"
+            : "bg-amber-50 border-amber-200"
+        }`}
+      >
+        <CardContent className="px-4 py-3">
+          <p className="text-xs font-bold text-amber-600 mb-1">{cat}</p>
+          <p className="text-sm min-h-[1.25rem]">{text}</p>
+        </CardContent>
+      </Card>
+      {!isLeft && (
+        <CatIcon
+          name={cat}
           size={56}
           className="ml-1 shrink-0 self-center"
         />
