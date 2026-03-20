@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import Image from "next/image";
 import { experimental_useObject as useObject } from "@ai-sdk/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -138,7 +139,39 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     submit(hearing);
   }, [hearing, submit]);
 
-  // エラー表示
+  // レート制限エラー
+  const isRateLimited = error?.message?.includes("429");
+  if (isRateLimited) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4 max-w-md mx-auto text-center">
+        <Image
+          src="/cats/sleeping.png"
+          alt="お休み中の猫たち"
+          width={280}
+          height={280}
+        />
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-amber-800">
+            猫たちはお休み中にゃ...
+          </h2>
+          <p className="text-sm text-amber-600">
+            今日はたくさん会議したから、みんな疲れちゃったにゃ。
+            <br />
+            明日また来てほしいにゃ。
+          </p>
+        </div>
+        <Button
+          onClick={onReset}
+          variant="outline"
+          className="border-amber-300 hover:bg-amber-100 cursor-pointer"
+        >
+          トップに戻るにゃ
+        </Button>
+      </div>
+    );
+  }
+
+  // その他のエラー
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
