@@ -7,11 +7,12 @@ import { CatName } from "@/lib/types";
 interface ChatBubbleProps {
   cat: CatName;
   text: string;
-  isLeft: boolean;
+  alignment: "left" | "right";
   isStreaming?: boolean;
 }
 
-export function ChatBubble({ cat, text, isLeft, isStreaming }: ChatBubbleProps) {
+export function ChatBubble({ cat, text, alignment, isStreaming }: ChatBubbleProps) {
+  const isLeft = alignment === "left";
   return (
     <div className={`flex ${isLeft ? "justify-start" : "justify-end"}`}>
       {isLeft && (

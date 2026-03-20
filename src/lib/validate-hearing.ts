@@ -4,14 +4,14 @@ import { HearingResult } from "@/lib/types";
 
 const hearingResultSchema = z.object({
   themeId: z.number(),
-  answers: z.array(z.string().trim().max(200)),
+  answers: z.array(z.string().trim().max(200)).max(10),
 });
 
 /** 入力をバリデーションし、テーマとの整合性を検証する */
 export function validateHearingInput(input: unknown): HearingResult {
   const parsed = hearingResultSchema.safeParse(input);
   if (!parsed.success) {
-    console.error("[validateHearingInput] schema error:", parsed.error.format());
+    console.error("[validateHearingInput] schema error:", parsed.error.issues.length, "issues");
     throw new Error("Invalid request");
   }
 

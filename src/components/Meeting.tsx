@@ -113,9 +113,13 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
       setPhase("done");
     }
 
+    function isRateLimitError(e: unknown): boolean {
+      return e instanceof Error && e.message.includes("RATE_LIMITED");
+    }
+
     function handleStreamError(e: unknown) {
       setIsLoading(false);
-      if (e instanceof Error && e.message.includes("RATE_LIMITED")) {
+      if (isRateLimitError(e)) {
         setPhase("rate-limited");
         return;
       }
@@ -202,7 +206,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
             key={`msg-${i}`}
             cat={msg.cat}
             text={msg.text}
-            isLeft={i % 2 === 0}
+            alignment={i % 2 === 0 ? "left" : "right"}
           />
         ))}
 
@@ -210,7 +214,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
           <ChatBubble
             cat={streamingMsg.cat}
             text={streamingMsg.text}
-            isLeft={confirmedMessages.length % 2 === 0}
+            alignment={confirmedMessages.length % 2 === 0 ? "left" : "right"}
             isStreaming
           />
         )}
