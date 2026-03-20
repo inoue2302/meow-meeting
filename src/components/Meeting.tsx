@@ -128,12 +128,11 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     }
   }, [hearing, retryCount]);
 
+  const bottomRef = useRef<HTMLDivElement>(null);
+
   // 自動スクロール（メッセージ確定時のみ）
   const scrollToBottom = useCallback(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
   useEffect(() => {
@@ -143,10 +142,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
   // ストリーミング中のスクロール追従
   useEffect(() => {
     if (streamingMsg?.text) {
-      scrollRef.current?.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: "instant",
-      });
+      bottomRef.current?.scrollIntoView({ behavior: "instant" });
     }
   }, [streamingMsg?.text]);
 
@@ -220,6 +216,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
         )}
 
         {isLoading && !streamingMsg?.text && <TypingIndicator />}
+        <div ref={bottomRef} />
       </div>
 
       {phase === "done" && (
