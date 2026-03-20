@@ -1,6 +1,10 @@
 export const CAT_NAMES = ["モチ", "カゼ", "スミ", "トラ"] as const;
 export type CatName = (typeof CAT_NAMES)[number];
 
+export function isCatName(value: string): value is CatName {
+  return (CAT_NAMES as readonly string[]).includes(value);
+}
+
 export interface Cat {
   name: CatName;
   role: string;

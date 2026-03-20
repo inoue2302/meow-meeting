@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CatIcon } from "@/components/CatIcon";
 import { meetingSchema, MeetingResult } from "@/lib/schema";
-import { HearingResult, CatName } from "@/lib/types";
+import { HearingResult, CatName, isCatName } from "@/lib/types";
 import { PokapokaBattle } from "@/components/PokapokaBattle";
 import { Conclusion } from "@/components/Conclusion";
 
@@ -55,13 +55,15 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
       : messagesLen;
 
     if (completedCount > confirmedCountRef.current) {
-      const newConfirmed: ConfirmedMessage[] = [];
-      for (let i = confirmedCountRef.current; i < completedCount; i++) {
-        const msg = messages[i];
-        if (msg?.cat && msg?.text) {
-          newConfirmed.push({ cat: msg.cat as CatName, text: msg.text });
-        }
-      }
+      const newConfirmed: ConfirmedMessage[] = messages
+        .slice(confirmedCountRef.current, completedCount)
+        .flatMap((msg) => {
+          if (msg?.cat && msg?.text && isCatName(msg.cat)) {
+            return [{ cat: msg.cat, text: msg.text }];
+          }
+          return [];
+        });
+
       if (newConfirmed.length > 0) {
         setConfirmedMessages((prev) => [...prev, ...newConfirmed]);
         confirmedCountRef.current += newConfirmed.length;
@@ -77,16 +79,26 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
   // ストリーミング完了 → done へ
   useEffect(() => {
-    if (!isLoading && phase === "streaming" && submittedRef.current) {
+    if (
+      !isLoading &&
+      phase === "streaming" &&
+      submittedRef.current &&
+      object?.conclusion
+    ) {
       const strategies = (object?.strategies ?? []).filter(
         (s): s is string => s !== undefined
       );
-      setFinalResult({
+      const result: MeetingResult = {
         messages: confirmedMessages,
         conclusion: object?.conclusion ?? "",
-        strategies,
+        strategies: [
+          strategies[0] ?? "",
+          strategies[1] ?? "",
+          strategies[2] ?? "",
+        ],
         finalWord: object?.finalWord ?? "",
-      } as MeetingResult);
+      };
+      setFinalResult(result);
       setPhase("done");
     }
   }, [isLoading, phase, confirmedMessages, object]);
@@ -165,9 +177,9 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
         ))}
 
         {/* ストリーミング中のメッセージ（リアルタイム表示） */}
-        {streamingMsg?.cat && streamingMsg?.text && (
+        {streamingMsg?.cat && streamingMsg?.text && isCatName(streamingMsg.cat) && (
           <ChatBubble
-            msg={{ cat: streamingMsg.cat as CatName, text: streamingMsg.text }}
+            msg={{ cat: streamingMsg.cat, text: streamingMsg.text }}
             index={confirmedMessages.length}
             isStreaming
           />
