@@ -9,6 +9,8 @@ import { HearingResult, CatName } from "@/lib/types";
 import { PokapokaBattle } from "@/components/PokapokaBattle";
 import { Conclusion } from "@/components/Conclusion";
 
+const MESSAGE_DISPLAY_DELAY_MS = 1200;
+
 interface MeetingProps {
   hearing: HearingResult;
   onReset: () => void;
@@ -29,10 +31,14 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
     "meeting"
   );
   const [submitted, setSubmitted] = useState(false);
-  const [confirmedMessages, setConfirmedMessages] = useState<
+  // LLMから完成したメッセージのキュー
+  const [readyMessages, setReadyMessages] = useState<ConfirmedMessage[]>([]);
+  // 画面に表示済みのメッセージ
+  const [displayedMessages, setDisplayedMessages] = useState<
     ConfirmedMessage[]
   >([]);
   const [finalResult, setFinalResult] = useState<MeetingResult | null>(null);
+  const [isShowingTyping, setIsShowingTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevMessagesLenRef = useRef(0);
 
@@ -46,48 +52,67 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
   const messages = object?.messages ?? [];
 
-  // メッセージが確定したら追加（次のメッセージが来た = 前のメッセージは完成）
+  // LLMから完成したメッセージをreadyキューに追加
   useEffect(() => {
-    // 新しいメッセージが生えた → 前のメッセージは完成
     if (messages.length > prevMessagesLenRef.current) {
-      // 前のメッセージ群（最後以外）で未確定のものを確定
-      for (let i = confirmedMessages.length; i < messages.length - 1; i++) {
+      for (
+        let i = Math.max(prevMessagesLenRef.current, 0);
+        i < messages.length - 1;
+        i++
+      ) {
         const msg = messages[i];
         if (msg?.cat && msg?.text) {
-          setConfirmedMessages((prev) => [
-            ...prev,
-            { cat: msg.cat!, text: msg.text! },
-          ]);
+          setReadyMessages((prev) => {
+            if (prev.length <= i) {
+              return [...prev, { cat: msg.cat!, text: msg.text! }];
+            }
+            return prev;
+          });
         }
       }
       prevMessagesLenRef.current = messages.length;
     }
 
-    // ストリーミング完了 → 最後のメッセージも確定
+    // ストリーミング完了 → 最後のメッセージもreadyに
     if (!isLoading && messages.length > 0) {
-      const remaining: ConfirmedMessage[] = [];
-      for (let i = confirmedMessages.length; i < messages.length; i++) {
+      const allReady: ConfirmedMessage[] = [];
+      for (let i = 0; i < messages.length; i++) {
         const msg = messages[i];
         if (msg?.cat && msg?.text) {
-          remaining.push({ cat: msg.cat, text: msg.text });
+          allReady.push({ cat: msg.cat, text: msg.text });
         }
       }
-      if (remaining.length > 0) {
-        setConfirmedMessages((prev) => [...prev, ...remaining]);
-      }
+      setReadyMessages(allReady);
     }
-  }, [messages, messages.length, isLoading, confirmedMessages.length]);
+  }, [messages, messages.length, isLoading]);
 
-  // ストリーミング中かどうか（最後のメッセージがまだ生成中）
-  const isStreamingMessage =
-    isLoading && messages.length > confirmedMessages.length;
+  // readyキューから1つずつ遅延表示
+  useEffect(() => {
+    if (displayedMessages.length < readyMessages.length && !isShowingTyping) {
+      setIsShowingTyping(true);
+      const timer = setTimeout(() => {
+        setDisplayedMessages((prev) => [
+          ...prev,
+          readyMessages[prev.length],
+        ]);
+        setIsShowingTyping(false);
+      }, MESSAGE_DISPLAY_DELAY_MS);
+      return () => clearTimeout(timer);
+    }
+  }, [readyMessages.length, displayedMessages.length, isShowingTyping, readyMessages]);
 
-  // 会議完了 → 結果を保存してポカポカ演出へ
+  // ストリーミング中 or 表示待ちがある
+  const showTypingIndicator =
+    isShowingTyping ||
+    (isLoading && messages.length <= displayedMessages.length);
+
+  // 全メッセージ表示完了かつストリーミング完了 → ポカポカ演出へ
   useEffect(() => {
     if (
       !isLoading &&
       object?.messages &&
       object.messages.length > 0 &&
+      displayedMessages.length >= object.messages.length &&
       phase === "meeting"
     ) {
       const completeMessages = (object.messages ?? [])
@@ -104,10 +129,10 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
       } as MeetingResult);
       const timer = setTimeout(() => {
         setPhase("pokapoka");
-      }, 1000);
+      }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isLoading, object, phase]);
+  }, [isLoading, object, phase, displayedMessages.length]);
 
   // 自動スクロール
   const scrollToBottom = useCallback(() => {
@@ -118,7 +143,7 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
 
   useEffect(() => {
     scrollToBottom();
-  }, [confirmedMessages.length, isStreamingMessage, scrollToBottom]);
+  }, [displayedMessages.length, showTypingIndicator, scrollToBottom]);
 
   if (phase === "pokapoka") {
     return <PokapokaBattle onComplete={() => setPhase("conclusion")} />;
@@ -138,13 +163,11 @@ export function Meeting({ hearing, onReset }: MeetingProps) {
   return (
     <div className="flex flex-col min-h-screen px-4 py-6 max-w-md mx-auto w-full">
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto pb-4">
-        {/* 確定済みメッセージのみ表示（ストリーミング中のテキストは非表示） */}
-        {confirmedMessages.map((msg, i) => (
+        {displayedMessages.map((msg, i) => (
           <MessageBubble key={`msg-${i}`} msg={msg} index={i} />
         ))}
 
-        {/* ストリーミング中はタイピングインジケーターのみ */}
-        {(isStreamingMessage || (isLoading && messages.length === 0)) && (
+        {showTypingIndicator && (
           <div className="flex justify-start animate-fade-in">
             <Card className="bg-white border-amber-200">
               <CardContent className="px-4 py-3">
