@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# にゃんず進路会議 (meow-meeting)
 
-## Getting Started
+AI時代のキャリア不安を、猫4匹の作戦会議で癒すアプリ。
 
-First, run the development server:
+> 「AIの話、人間に聞いても不安になるだけ。猫に聞こう。」
+
+## どんなアプリ？
+
+AI時代のキャリアの悩みを選ぶと、4匹の猫たちが作戦会議を行い、明日からの行動を提案してくれます。
+
+- **モチ** - 共感担当。「つらかったにゃね...」とまず受け止める
+- **カゼ** - 行動担当。「今すぐ動くにゃ！」と背中を押す
+- **スミ** - 分析担当。「冷静に考えるにゃ」とズバッと言う
+- **トラ** - 進行+まとめ。会議を仕切り、最後にまとめる
+
+## 体験の流れ
+
+1. **ヒアリング** - トラが1対1で質問（すべて選択式）
+2. **作戦会議** - 4匹が議論（リアルタイムストリーミング）
+3. **ポカポカ演出** - 猫たちの喧嘩アニメーション
+4. **結論** - トラのまとめ + 明日からの作戦3つ
+
+## 技術スタック
+
+| 項目 | 技術 |
+|------|------|
+| フレームワーク | Next.js 15 (App Router) |
+| AI | Anthropic API (Claude) |
+| 構造化出力 | Vercel AI SDK `streamObject` + Zod |
+| スタイリング | Tailwind CSS |
+| デプロイ | Vercel |
+
+## セットアップ
+
+```bash
+npm install
+```
+
+`.env.local` を作成:
+
+```
+ANTHROPIC_API_KEY=your_api_key_here
+```
+
+開発サーバー起動:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+http://localhost:3000 でアクセス。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 設計思想
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **自由入力なし** - 選択式のみでプロンプトインジェクション不可能
+- **API 1回** - streamObjectで構造化JSONをストリーミング返却
+- **非冪等性が武器** - 同じ選択でも毎回違う会議が展開される
+- **風刺+癒し** - 途中はチクチク刺すけど、最後は背中を押す
+- **答えは出さない** - 判断はユーザーに委ねる。見え方を変えるきっかけを届ける
 
-## Learn More
+## ライセンス
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
