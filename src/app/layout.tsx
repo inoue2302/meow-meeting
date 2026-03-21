@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Zen_Maru_Gothic } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const zenMaruGothic = Zen_Maru_Gothic({
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-amber-50 text-foreground font-sans">
         {children}
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
